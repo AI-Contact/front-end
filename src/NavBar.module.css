@@ -1,0 +1,46 @@
+.navbar {
+    width: 140px;
+    height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px 20px;
+    position: fixed;
+    left: 0;
+    top: 60px;
+    background-color: #f8ffff;
+    transition: width 0.3s ease;
+    overflow-x: hidden;
+}
+
+.navbar.collapsed {
+    width: 40px;
+    padding: 20px 20px;
+}
+
+.navitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #39b6ff;
+    font-size: 1.0rem;
+    font-weight: 500;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap;
+    height: 20px;
+}
+
+.navitem:hover {
+    background-color: #e6f7f7;
+    transform: translateX(4px);
+}
+
+.navitem svg {
+    color: #39b6ff;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
