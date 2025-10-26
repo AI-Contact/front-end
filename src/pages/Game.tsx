@@ -85,11 +85,13 @@ const Game = () => {
                     <div className={styles.rankingHeader}>
                         <span>등수</span>
                         <span>아이디</span>
+                        <span></span>
                         <span>점수</span>
                     </div>
                     {rankingList.map((item, idx) => (
                         <div key={idx} className={styles.rankingItem}>
                             <span className={styles.rankNumber}>{idx + 1}</span>
+                            <span className={styles.rankAvatar}>{/* Avatar 이미지 */}</span>
                             <span className={styles.rankName}>{item}</span>
                             <span className={styles.rankScore}>20</span>
                         </div>

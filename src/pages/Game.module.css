@@ -42,7 +42,6 @@
     transform: translateY(-55%);
     cursor: pointer;
     background-color: white;
-    /* Changed from red to white */
     border: none;
     border-radius: 50%;
     width: 40px;
@@ -79,7 +78,7 @@
 
 .rankingHeader {
     display: grid;
-    grid-template-columns: 100px 1fr 100px;
+    grid-template-columns: 60px 50px 1fr 100px;
     padding: 12px 24px;
     border-bottom: 1px solid #eee;
     color: #666;
@@ -88,7 +87,7 @@
 
 .rankingItem {
     display: grid;
-    grid-template-columns: 100px 1fr 100px;
+    grid-template-columns: 60px 50px 1fr 100px;
     padding: 12px 24px;
     align-items: center;
     border-bottom: 1px solid #eee;
@@ -103,8 +102,20 @@
     padding-left: 10px;
 }
 
+.rankAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
 .rankName {
     color: #333;
+    padding-left: 12px;
 }
 
 .rankScore {
