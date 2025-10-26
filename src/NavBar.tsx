@@ -17,9 +17,9 @@ const NavBar = ({ collapsed }: { collapsed: boolean }) => {
                 <FaChartColumn />
                 {!collapsed && <span>리포트</span>}
             </Link>
-            <Link to="challenge" className={styles.navitem}>
+            <Link to="game" className={styles.navitem}>
                 <FaBolt />
-                {!collapsed && <span>챌린지</span>}
+                {!collapsed && <span>게임하기</span>}
             </Link>
             <Link to="settings" className={styles.navitem}>
                 <FaCog />

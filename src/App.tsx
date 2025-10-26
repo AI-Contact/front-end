@@ -4,7 +4,7 @@ import NavBar from './NavBar'
 import Home from './pages/Home'
 import Report from './pages/Report'
 import Settings from './pages/Settings'
-import Challenge from './pages/Challenge'
+import Game from './pages/Game'
 import { useState } from 'react'
 import { FaBars } from 'react-icons/fa6'
 
@@ -33,7 +33,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />}></Route>
             <Route path="/report" element={<Report />}></Route>
-            <Route path="/challenge" element={<Challenge />}></Route>
+            <Route path="/game" element={<Game />}></Route>
             <Route path="/settings" element={<Settings />}></Route>
           </Routes>
         </main>
