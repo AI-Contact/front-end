@@ -4,23 +4,29 @@ import styles from './Game.module.css'
 import { useEffect, useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
+interface VideoItem {
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+}
+
 const Game = () => {
     const responsive = {
         superLargeDesktop: {
             breakpoint: { max: 4000, min: 3000 },
-            items: 6
+            items: 5
         },
         desktop: {
             breakpoint: { max: 3000, min: 1024 },
-            items: 4
+            items: 3
         },
         tablet: {
             breakpoint: { max: 1024, min: 464 },
-            items: 3
+            items: 2
         },
         mobile: {
             breakpoint: { max: 464, min: 0 },
-            items: 2
+            items: 1
         }
     };
 
@@ -36,19 +42,59 @@ const Game = () => {
         );
     };
 
-    // 유튜브 영상 정보들
-    const [videoList, setVideoList] = useState<string[]>([]);
+    const [videoList, setVideoList] = useState<VideoItem[]>([]);
     const [rankingList, setRankingList] = useState<string[]>([]);
+    const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 서버에서 금주의 영상 리스트 불러오는 함수 & 랭킹도!
-    // TODO: actually fetch from server
     useEffect(() => {
-        const tempVideoList = ["영상1", "영상2", "영상3", "영상4", "영상5"];
+        const tempVideoList = [
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+            {
+                id: "hAGfBjvIRFI",
+                title: "팔 운동",
+                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
+            },
+        ];
         setVideoList(tempVideoList);
 
         const tempRankingList = ["AAAA", "BBBB", "CCCC", "DDDD", "EEEE"];
         setRankingList(tempRankingList);
     }, []);
+
+    const handleVideoClick = (videoId: string) => {
+        setSelectedVideo(videoId);
+        setIsModalOpen(true);
+    };
 
     return (
         <>
@@ -68,16 +114,47 @@ const Game = () => {
                     draggable={true}
                     removeArrowOnDeviceType={["tablet", "mobile"]}
                 >
-                    {videoList.map((item, idx) => (
-                        <div className={styles.cardContainer} key={idx}>
+                    {videoList.map((video, idx) => (
+                        <div
+                            className={styles.cardContainer}
+                            key={idx}
+                            onClick={() => handleVideoClick(video.id)}
+                        >
                             <div className={styles.card}>
-                                <h3>{item}</h3> {/* TOOD: 임시, 추후 썸네일로 대체 */}
+                                <img
+                                    src={video.thumbnailUrl}
+                                    alt={video.title}
+                                    className={styles.thumbnail}
+                                />
                             </div>
-                            <p>{item} 제목</p>
+                            <p>{video.title}</p>
                         </div>
                     ))}
                 </Carousel>
             </div>
+
+            {/* Video Modal */}
+            {isModalOpen && (
+                <div className={styles.modal} onClick={() => setIsModalOpen(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className={styles.closeButton}
+                            onClick={() => setIsModalOpen(false)}
+                        >
+                            ×
+                        </button>
+                        <iframe
+                            width="100%"
+                            height="500"
+                            src={`https://www.youtube.com/embed/${selectedVideo}`}
+                            title="YouTube video player"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        ></iframe>
+                    </div>
+                </div>
+            )}
 
             <div className="ranking">
                 <h1>랭킹보기</h1>
