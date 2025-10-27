@@ -5,19 +5,12 @@ import styles from "./NavBar.module.css"
 import { FaHouse, FaBolt, FaChartColumn, FaDumbbell } from "react-icons/fa6";
 import { FaCog } from "react-icons/fa";
 import { IoLogOut } from "react-icons/io5";
-import { CgGym } from "react-icons/cg";
-
 
 const NavBar = ({ collapsed }: { collapsed: boolean }) => {
     const location = useLocation();
 
     return (
         <div className={`${styles.navbar} ${collapsed ? styles.collapsed : ''}`}>
-            {/* 로고 섹션 */}
-            <div className={styles.logo}>
-                <span className={styles.logoText}>AI FIT YOU</span>
-                <CgGym className={styles.logoIcon} />
-            </div>
 
             {/* 메인 메뉴 섹션 */}
             <div className={styles.mainMenu}>
