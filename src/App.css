@@ -1,3 +1,7 @@
+body {
+  margin: 0;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -106,14 +110,15 @@
 
 /* 메인 콘텐츠 */
 .main-content {
-  margin-left: 240px;
+  margin-left: 270px;
   margin-top: 80px;
   padding: 30px;
   flex-grow: 1;
   transition: margin-left 0.3s ease;
   min-height: calc(100vh - 80px);
+  justify-content: center;
 }
 
 .main-content.expanded {
-  margin-left: 60px;
+  margin-left: 70px;
 }
