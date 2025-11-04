@@ -1,46 +1,89 @@
 .navbar {
-    width: 140px;
-    height: calc(100vh - 60px);
+    width: 240px;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 20px 20px;
+    padding: 20px 16px;
     position: fixed;
     left: 0;
-    top: 60px;
-    background-color: #f8ffff;
+    top: 0;
+    background-color: #f5f5ff;
     transition: width 0.3s ease;
     overflow-x: hidden;
+    border-right: 1px solid #e0e0e0;
+    z-index: 5;
 }
 
 .navbar.collapsed {
-    width: 40px;
-    padding: 20px 20px;
+    width: 45px;
+    padding: 20px 16px;
 }
 
+/* 메인 메뉴 섹션 */
+.mainMenu {
+    margin-top: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+/* 하단 메뉴 섹션 */
+.bottomMenu {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 50px;
+    gap: 10px;
+    padding-top: 25px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* 네비게이션 아이템 */
 .navitem {
     display: flex;
     align-items: center;
-    gap: 10px;
+    height: 28px;
+    gap: 14px;
     text-decoration: none;
-    color: #39b6ff;
-    font-size: 1.0rem;
+    color: #333;
+    font-size: 1.05rem;
     font-weight: 500;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 14px 18px;
+    border-radius: 10px;
     transition: all 0.2s ease-in-out;
     white-space: nowrap;
-    height: 20px;
+    background: none;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
 }
 
 .navitem:hover {
-    background-color: #e6f7f7;
-    transform: translateX(4px);
+    background-color: #e8e4ff;
+}
+
+.navitem.active {
+    background-color: #6b46ff;
+    color: #fff;
+}
+
+.navitem.active svg {
+    color: #fff;
 }
 
 .navitem svg {
-    color: #39b6ff;
+    color: #6b46ff;
     flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+}
+
+.navbar.collapsed .navitem {
+    border-radius: 10px;
+    gap: 0;
+}
+
+.navbar.collapsed .navitem span {
+    display: none;
 }

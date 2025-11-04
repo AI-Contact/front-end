@@ -1,0 +1,390 @@
+/* Workout Page Container */
+.workout {
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+    padding: 0;
+}
+
+/* Featured Exercise Card */
+.featuredCard {
+    background-color: white;
+    border: 1px solid #f1f5f9;
+    border-radius: 20px;
+    box-shadow: 0px 8px 32px 0px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    height: 577.625px;
+}
+
+/* Left - Image Section */
+.imageSection {
+    position: relative;
+    width: 459px;
+    height: 100%;
+    overflow: hidden;
+}
+
+.backgroundImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+}
+
+.imageOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0));
+}
+
+.completionBadge {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    background-color: #5724ff;
+    height: 37px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1),
+        0px 4px 6px -4px rgba(0, 0, 0, 0.1);
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+    display: flex;
+    align-items: center;
+    z-index: 2;
+}
+
+.playButton {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.playCircle {
+    width: 96px;
+    height: 96px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transition: all 0.3s ease;
+}
+
+.playCircle:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.playIcon {
+    width: 48px;
+    height: 48px;
+    color: white;
+}
+
+.playText {
+    font-weight: 600;
+    font-size: 14px;
+    color: white;
+}
+
+/* Right - Info Section */
+.infoSection {
+    flex: 1;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 21px;
+}
+
+.titleSection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.exerciseTitle {
+    font-weight: 800;
+    font-size: 36px;
+    color: #1d293d;
+    margin: 0;
+}
+
+.difficultyBadge {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 5px 7.5px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    color: white;
+}
+
+.statsCards {
+    display: flex;
+    gap: 16px;
+}
+
+.statCard {
+    flex: 1;
+    height: 86.5px;
+    border-radius: 12px;
+    border: 1px solid;
+    padding: 17px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.statCard.time {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.statCard.calories {
+    background-color: #fff7ed;
+    border-color: #ffedd4;
+}
+
+.statHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.statIcon {
+    width: 19.023px;
+    height: 19.023px;
+}
+
+.statIcon.blue {
+    color: #155dfc;
+}
+
+.statIcon.orange {
+    color: #f54900;
+}
+
+.statValue {
+    font-weight: 600;
+    font-size: 16px;
+    margin: 0;
+}
+
+.statValue.blue {
+    color: #2b7fff;
+}
+
+.statValue.orange {
+    color: #f54900;
+}
+
+.statLabel {
+    font-weight: 400;
+    font-size: 11px;
+    margin: 0;
+}
+
+.statLabel.blue {
+    color: #2b7fff;
+}
+
+.statLabel.orange {
+    color: #ff6900;
+}
+
+.description {
+    font-weight: 500;
+    font-size: 15px;
+    color: #45556c;
+    line-height: 24.375px;
+    margin: 0;
+}
+
+.benefitsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.benefitsTitle {
+    font-weight: 600;
+    font-size: 14px;
+    color: #314158;
+    margin: 0;
+}
+
+.benefitsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.benefitItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkIcon {
+    width: 16px;
+    height: 16px;
+    color: #00c950;
+    flex-shrink: 0;
+}
+
+.benefitText {
+    font-weight: 400;
+    font-size: 14px;
+    color: #45556c;
+}
+
+.startButton {
+    background-color: #5724ff;
+    height: 59px;
+    width: 226px;
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1),
+        0px 4px 6px -4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: auto;
+}
+
+.startButton:hover {
+    background-color: #4a1fe6;
+    transform: translateY(-2px);
+}
+
+.startButtonText {
+    font-weight: 700;
+    font-size: 18px;
+    color: white;
+}
+
+.arrowIcon {
+    width: 20px;
+    height: 20px;
+    color: white;
+}
+
+/* Exercise List Section */
+.exerciseListSection {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sectionTitle {
+    font-weight: 700;
+    font-size: 24px;
+    color: #1d293d;
+    margin: 0;
+}
+
+.exerciseGrid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+}
+
+/* Exercise Card */
+.exerciseCard {
+    background-color: white;
+    border: 1px solid #e5f0fa;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.exerciseCard:hover {
+    box-shadow: 0px 0px 15px 3px rgba(43, 127, 255, 0.3);
+}
+
+.cardThumbnail {
+    position: relative;
+    height: 180px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.cardThumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnailBadge {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 5px 7.5px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    color: white;
+}
+
+.cardInfo {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cardTitle {
+    font-weight: 700;
+    font-size: 16px;
+    color: black;
+    margin: 0;
+}
+
+.cardStats {
+    display: flex;
+    gap: 8px;
+}
+
+.cardBadge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.cardBadge.time {
+    background-color: #eff6ff;
+    color: #155dfc;
+}
+
+.cardBadge.calories {
+    background-color: #fff7ed;
+    color: #f54900;
+}
+
+.badgeIcon {
+    width: 14px;
+    height: 14px;
+}

@@ -1,0 +1,165 @@
+.cardContainer {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding: 0 30px;
+    align-items: center;
+    margin: 16px;
+    width: 300px;
+}
+
+.card {
+    border: 1px solid #ffffff;
+    border-radius: 16px;
+    min-height: 100px;
+    width: 100%;
+    background: white;
+    box-shadow: 0 4px 12px rgba(87, 36, 255, 0.15);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    overflow: hidden;
+    padding: 0;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(87, 36, 255, 0.15);
+}
+
+.arrowButton {
+    position: absolute;
+    transform: translateY(-55%);
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+}
+
+.leftArrow {
+    left: 0px;
+}
+
+.rightArrow {
+    right: 0px;
+}
+
+.arrowButton:hover {
+    /* background-color: #f8f8f8; */
+    transform: translateY(-55%) scale(1.1);
+}
+
+.rankingList {
+    display: flex;
+    flex-direction: column;
+    margin-top: 16px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(87, 36, 255, 0.15);
+}
+
+.rankingHeader {
+    display: grid;
+    grid-template-columns: 60px 50px 1fr 100px;
+    padding: 12px 24px;
+    border-bottom: 1px solid #eee;
+    color: #666;
+    font-weight: bold;
+}
+
+.rankingItem {
+    display: grid;
+    grid-template-columns: 60px 50px 1fr 100px;
+    padding: 12px 24px;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+}
+
+.rankingItem:last-child {
+    border-bottom: none;
+}
+
+.rankNumber {
+    font-weight: bold;
+    padding-left: 10px;
+}
+
+.rankAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.rankName {
+    color: #333;
+    padding-left: 12px;
+}
+
+.rankScore {
+    color: #8B5CF6;
+    font-weight: 600;
+    text-align: right;
+    padding-right: 75px;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    display: block;
+    border-radius: 16px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modalContent {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    position: relative;
+    width: 80%;
+    max-width: 800px;
+}
+
+.closeButton {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #333;
+}
+
+.closeButton:hover {
+    color: #666;
+}
