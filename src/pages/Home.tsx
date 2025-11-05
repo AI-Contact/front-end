@@ -2,8 +2,23 @@ import styles from './Home.module.css';
 import { FiClock, FiActivity } from 'react-icons/fi';
 import { IoSparkles } from 'react-icons/io5';
 import { IoMdTrendingUp } from 'react-icons/io';
+import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 
 const Home = () => {
+    const navigate = useNavigate();
+    const progressRef = useRef<HTMLDivElement>(null);
+
+    // 기록운동 페이지로 이동
+    const handleStartWorkout = () => {
+        navigate('/workout');
+    };
+
+    // 진행상황 섹션으로 스크롤
+    const handleViewProgress = () => {
+        progressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
     // 더미 데이터
     const rankings = [
         { rank: 1, emoji: '👑', name: '운동왕김철수', score: '9,850', type: 'gold' },
@@ -45,8 +60,12 @@ const Home = () => {
                     <h1 className={styles.bannerTitle}>환영합니다!</h1>
                     <p className={styles.bannerSubtitle}>오늘도 건강한 하루를 시작해볼까요?</p>
                     <div className={styles.bannerButtons}>
-                        <button className={styles.primaryButton}>오늘의 운동 시작</button>
-                        <button className={styles.secondaryButton}>진행상황 보기</button>
+                        <button className={styles.primaryButton} onClick={handleStartWorkout}>
+                            오늘의 운동 시작
+                        </button>
+                        <button className={styles.secondaryButton} onClick={handleViewProgress}>
+                            진행상황 보기
+                        </button>
                     </div>
                 </div>
 
@@ -69,7 +88,7 @@ const Home = () => {
             </div>
 
             {/* Weekly Progress */}
-            <div className={styles.weeklyProgress}>
+            <div className={styles.weeklyProgress} ref={progressRef}>
                 <h2 className={styles.cardTitle}>이번 주 진행상황</h2>
                 <div className={styles.progressList}>
                     {progress.map((item, index) => (
