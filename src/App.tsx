@@ -38,7 +38,7 @@ function AppContent() {
                   <IoMdNotifications />
                 </button>
                 <div className='user-profile'>
-                  <img src="https://via.placeholder.com/40" alt="User" />
+                  <img src="https://ui-avatars.com/api/?name=User&background=4F46E5&color=fff&size=40" alt="User" />
                 </div>
               </div>
             </div>
