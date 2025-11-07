@@ -3,13 +3,18 @@ import { useNavigate, Link } from 'react-router-dom';
 import styles from './Register.module.css';
 import { IoMdMail, IoMdLock, IoMdPerson } from 'react-icons/io';
 import { IoSparkles } from 'react-icons/io5';
+import { registerUser } from '../api/authService';
 
 const Register = () => {
     const [formData, setFormData] = useState({
-        name: '',
+        username: '',
+        full_name: '',
+        age: 20,
+        height: 170,
+        weight: 60,
         email: '',
         password: '',
-        confirmPassword: '',
+        password_confirm: '',
     });
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const navigate = useNavigate();
@@ -26,7 +31,7 @@ const Register = () => {
         e.preventDefault();
 
         // Basic validation
-        if (formData.password !== formData.confirmPassword) {
+        if (formData.password !== formData.password_confirm) {
             alert('비밀번호가 일치하지 않습니다.');
             return;
         }
@@ -35,11 +40,23 @@ const Register = () => {
             alert('이용약관에 동의해주세요.');
             return;
         }
-
-        // TODO: Implement actual registration logic
-        console.log('Registration attempt:', formData);
-        // Navigate to login after successful registration
-        navigate('/login');
+        // Map to API schema: UserRegister
+        registerUser({
+            email: formData.email,
+            username: formData.username,
+            full_name: formData.username,
+            age: formData.age,
+            height: formData.height,
+            weight: formData.weight,
+            password: formData.password,
+            password_confirm: formData.password_confirm,
+        })
+            .then(() => {
+                navigate('/login');
+            })
+            .catch((error: { message?: string }) => {
+                alert(error?.message || '회원가입에 실패했습니다.');
+            });
     };
 
     return (
@@ -55,18 +72,18 @@ const Register = () => {
 
                 <form className={styles.registerForm} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
-                        <label htmlFor="name" className={styles.label}>
-                            이름
+                        <label htmlFor="username" className={styles.label}>
+                            아이디
                         </label>
                         <div className={styles.inputWrapper}>
                             <IoMdPerson className={styles.inputIcon} />
                             <input
-                                id="name"
-                                name="name"
+                                id="username"
+                                name="username"
                                 type="text"
                                 className={styles.input}
-                                placeholder="이름을 입력하세요"
-                                value={formData.name}
+                                placeholder="아이디를 입력하세요"
+                                value={formData.username}
                                 onChange={handleChange}
                                 required
                             />
@@ -107,27 +124,27 @@ const Register = () => {
                                 value={formData.password}
                                 onChange={handleChange}
                                 required
-                                minLength={6}
+                                minLength={4}
                             />
                         </div>
                     </div>
 
                     <div className={styles.inputGroup}>
-                        <label htmlFor="confirmPassword" className={styles.label}>
+                        <label htmlFor="password_confirm" className={styles.label}>
                             비밀번호 확인
                         </label>
                         <div className={styles.inputWrapper}>
                             <IoMdLock className={styles.inputIcon} />
                             <input
-                                id="confirmPassword"
-                                name="confirmPassword"
+                                id="password_confirm"
+                                name="password_confirm"
                                 type="password"
                                 className={styles.input}
                                 placeholder="비밀번호를 다시 입력하세요"
-                                value={formData.confirmPassword}
+                                value={formData.password_confirm}
                                 onChange={handleChange}
                                 required
-                                minLength={6}
+                                minLength={4}
                             />
                         </div>
                     </div>

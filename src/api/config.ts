@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAccessToken } from '../auth/token';
 
 // API Base URL
 // 개발 환경에서는 Vite 프록시를 통해 /api 요청을 백엔드로 전달
@@ -16,11 +17,11 @@ export const apiClient = axios.create({
 // 요청 인터셉터 (필요시 토큰 추가 등)
 apiClient.interceptors.request.use(
     (config) => {
-        // 로컬 스토리지에서 토큰 가져오기 (추후 인증 기능 추가 시)
-        // const token = localStorage.getItem('token');
-        // if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        // }
+        const token = getAccessToken();
+        if (token) {
+            config.headers = config.headers ?? {};
+            (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error) => {
