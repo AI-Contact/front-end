@@ -8,6 +8,7 @@ import Game from './pages/Game'
 import Workout from './pages/Workout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ExerciseSession from './pages/ExerciseSession'
 import { useState } from 'react'
 import { FaBars } from 'react-icons/fa6'
 import { IoMdNotifications } from 'react-icons/io'
@@ -56,6 +57,7 @@ function AppContent() {
           <Route path="/register" element={<Register />}></Route>
           <Route path="/" element={<Home />}></Route>
           <Route path="/workout" element={<Workout />}></Route>
+          <Route path="/exercise-session" element={<ExerciseSession />}></Route>
           <Route path="/report" element={<Report />}></Route>
           <Route path="/game" element={<Game />}></Route>
           <Route path="/settings" element={<Settings />}></Route>

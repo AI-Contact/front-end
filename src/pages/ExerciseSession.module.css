@@ -1,0 +1,189 @@
+.container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #f5f5f7;
+}
+
+/* 상단 헤더 */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    background: white;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.headerInfo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.exerciseTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0;
+}
+
+.difficultyBadge {
+    padding: 6px 16px;
+    background: #4F46E5;
+    color: white;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.endButton {
+    padding: 12px 24px;
+    background: #ff3b30;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.endButton:hover {
+    background: #e6342a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+}
+
+/* 메인 컨텐츠 */
+.mainContent {
+    flex: 1;
+    display: flex;
+    padding: 20px;
+    overflow: hidden;
+}
+
+/* 카메라 영역 */
+.cameraSection {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cameraPlaceholder {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cameraPlaceholder p {
+    color: white;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* 정보 사이드바 */
+.infoSidebar {
+    width: 350px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+.infoCard,
+.statsCard,
+.benefitsCard {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.infoCard h3,
+.statsCard h3,
+.benefitsCard h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0 0 16px 0;
+}
+
+.infoCard p {
+    color: #6e6e73;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* 통계 카드 */
+.statItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f7;
+}
+
+.statItem:last-child {
+    border-bottom: none;
+}
+
+.statLabel {
+    color: #6e6e73;
+    font-size: 14px;
+}
+
+.statValue {
+    color: #1d1d1f;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* 운동 효과 */
+.benefitsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.benefitsList li {
+    padding: 10px 0;
+    color: #6e6e73;
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+    padding-left: 24px;
+}
+
+.benefitsList li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #4F46E5;
+    font-weight: 700;
+}
+
+/* 반응형 */
+@media (max-width: 1024px) {
+    .mainContent {
+        flex-direction: column;
+    }
+
+    .infoSidebar {
+        width: 100%;
+    }
+
+    .cameraSection {
+        height: 400px;
+    }
+}

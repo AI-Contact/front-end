@@ -2,10 +2,13 @@ import styles from './Workout.module.css';
 import { FiClock, FiActivity, FiPlay, FiArrowRight } from 'react-icons/fi';
 import { IoCheckmarkCircle } from 'react-icons/io5';
 import { useState, useEffect } from 'react';
-import { getExercises, getExerciseById } from '../api/exerciseService';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getExercises, startExercise, getMyRecords } from '../api/exerciseService';
 
 const Workout = () => {
     // 상태 관리
+    const navigate = useNavigate();
+    const location = useLocation();
     const [exercises, setExercises] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -18,8 +21,32 @@ const Workout = () => {
             try {
                 setLoading(true);
                 setError(null);
+
+                // 운동 목록 가져오기
                 const data = await getExercises({ limit: 20 });
                 console.log('API 응답 데이터:', data); // 디버깅용
+
+                // 내 운동 기록 가져오기
+                let myRecords: Array<{ exercise_id: number; duration?: number }> = [];
+                try {
+                    myRecords = await getMyRecords({ limit: 100 });
+                    console.log('내 운동 기록:', myRecords);
+                } catch (recordErr) {
+                    console.log('운동 기록 조회 실패 (로그인 필요 가능성):', recordErr);
+                    // 기록 조회 실패해도 운동 목록은 표시
+                }
+
+                // 각 운동별 총 운동 시간 계산 (초 단위)
+                const recordTimeMap = myRecords.reduce((acc: Record<number, number>, record: { exercise_id: number; duration?: number }) => {
+                    const exerciseId = record.exercise_id;
+                    // duration이 분 단위라면 초로 변환 (API 스펙에 따라 조정 필요)
+                    const durationInSeconds = (record.duration || 0) * 60;
+                    acc[exerciseId] = (acc[exerciseId] || 0) + durationInSeconds;
+                    return acc;
+                }, {});
+
+                console.log('=== 운동 시간 계산 결과 ===');
+                console.log('recordTimeMap:', recordTimeMap);
 
                 // API 데이터를 UI에 맞게 변환
                 const formattedExercises = data.map((exercise: any) => ({
@@ -34,6 +61,7 @@ const Workout = () => {
                     benefits: exercise.muscle_groups || [], // 배열이 없으면 빈 배열
                     thumbnail: exercise.thumbnail_url || 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800',
                     videoId: 'hAGfBjvIRFI', // 임시 비디오 ID
+                    totalTimeSeconds: recordTimeMap[exercise.id] || 0, // 총 운동 시간 (초)
                 }));
 
                 setExercises(formattedExercises);
@@ -46,12 +74,40 @@ const Workout = () => {
         };
 
         fetchExercises();
-    }, []);
+    }, [location.key]); // location.key가 변경될 때마다 (페이지 이동 시마다) 데이터 새로고침
 
     // 운동 카드 클릭 핸들러
     const handleExerciseClick = (index: number) => {
         setSelectedExerciseIndex(index);
         setIsPlaying(false); // 새 운동 선택 시 영상 재생 초기화
+    };
+
+    // 운동 시작 핸들러
+    const handleStartExercise = async () => {
+        const exercise = exercises[selectedExerciseIndex];
+
+        try {
+            const recordData = await startExercise({
+                exercise_id: exercise.id,
+                duration: 0,
+                repetitions: 0,
+                sets_completed: 0,
+            });
+
+            console.log('=== 운동 시작 API 응답 ===');
+            console.log('Record ID:', recordData.id);
+            console.log('Exercise ID:', recordData.exercise_id);
+            console.log('Started At:', recordData.started_at);
+            console.log('전체 응답 데이터:', recordData);
+
+            // 운동 세션 페이지로 이동
+            navigate('/exercise-session', {
+                state: { exercise, recordData }
+            });
+        } catch (err) {
+            console.error('운동 시작 실패:', err);
+            alert('운동 시작에 실패했습니다.');
+        }
     };
 
     // 로딩 중일 때
@@ -187,7 +243,7 @@ const Workout = () => {
                     </div>
 
                     {/* Start Button */}
-                    <button className={styles.startButton}>
+                    <button className={styles.startButton} onClick={handleStartExercise}>
                         <span className={styles.startButtonText}>시작하러 가기</span>
                         <FiArrowRight className={styles.arrowIcon} />
                     </button>
@@ -225,6 +281,26 @@ const Workout = () => {
                                     <div className={`${styles.cardBadge} ${styles.calories}`}>
                                         <FiActivity className={styles.badgeIcon} />
                                         <span>{exercise.calories}</span>
+                                    </div>
+                                    {/* Total Time Badge */}
+                                    <div className={`${styles.cardBadge} ${styles.completed}`}>
+                                        <IoCheckmarkCircle className={styles.badgeIcon} />
+                                        <span>
+                                            {(() => {
+                                                const totalSeconds = exercise.totalTimeSeconds;
+                                                const hours = Math.floor(totalSeconds / 3600);
+                                                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                                                const seconds = totalSeconds % 60;
+
+                                                if (hours > 0) {
+                                                    return `${hours}시간 ${minutes}분 ${seconds}초`;
+                                                } else if (minutes > 0) {
+                                                    return `${minutes}분 ${seconds}초`;
+                                                } else {
+                                                    return `${seconds}초`;
+                                                }
+                                            })()}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

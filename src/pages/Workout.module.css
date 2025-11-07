@@ -398,6 +398,11 @@
     color: #f54900;
 }
 
+.cardBadge.completed {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
 .badgeIcon {
     width: 14px;
     height: 14px;
