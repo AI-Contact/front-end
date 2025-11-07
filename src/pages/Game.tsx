@@ -3,9 +3,11 @@ import 'react-multi-carousel/lib/styles.css';
 import styles from './Game.module.css'
 import { useEffect, useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { getChallengeVideos, getRankings, submitGameScore } from '../api/gameService';
 
 interface VideoItem {
-    id: string;
+    id: number; // backend video id
+    youtubeId: string;
     title: string;
     thumbnailUrl: string;
 }
@@ -43,56 +45,43 @@ const Game = () => {
     };
 
     const [videoList, setVideoList] = useState<VideoItem[]>([]);
-    const [rankingList, setRankingList] = useState<string[]>([]);
-    const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+    const [rankingList, setRankingList] = useState<{ userId: number; score: number }[]>([]);
+    const [selectedVideo, setSelectedVideo] = useState<{ id: number; youtubeId: string } | null>(null);
+    const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
+    const [loadingRankings, setLoadingRankings] = useState<boolean>(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
-        const tempVideoList = [
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-            {
-                id: "hAGfBjvIRFI",
-                title: "팔 운동",
-                thumbnailUrl: `https://img.youtube.com/vi/hAGfBjvIRFI/maxresdefault.jpg`
-            },
-        ];
-        setVideoList(tempVideoList);
-
-        const tempRankingList = ["AAAA", "BBBB", "CCCC", "DDDD", "EEEE"];
-        setRankingList(tempRankingList);
+        setLoadingVideos(true);
+        getChallengeVideos()
+            .then((videos) => {
+                const items: VideoItem[] = videos.map(v => ({
+                    id: v.id,
+                    youtubeId: v.youtube_id,
+                    title: v.title,
+                    thumbnailUrl: v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/maxresdefault.jpg`,
+                }));
+                setVideoList(items);
+            })
+            .catch(() => {
+                setVideoList([]);
+            })
+            .finally(() => setLoadingVideos(false));
     }, []);
 
-    const handleVideoClick = (videoId: string) => {
-        setSelectedVideo(videoId);
+    useEffect(() => {
+        if (!selectedVideo) return;
+        setLoadingRankings(true);
+        getRankings(selectedVideo.id, 10)
+            .then((rows) => {
+                setRankingList(rows.map(r => ({ userId: r.user_id, score: r.total_score })));
+            })
+            .catch(() => setRankingList([]))
+            .finally(() => setLoadingRankings(false));
+    }, [selectedVideo, selectedVideo?.id]);
+
+    const handleVideoClick = (video: VideoItem) => {
+        setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
         setIsModalOpen(true);
     };
 
@@ -100,53 +89,83 @@ const Game = () => {
         <>
             <div className="play">
                 <h1>게임하기</h1>
-                <Carousel
-                    responsive={responsive}
-                    infinite={true}
-                    autoPlay={true}
-                    autoPlaySpeed={3000}
-                    keyBoardControl={true}
-                    customTransition="transform 300ms ease-in-out"
-                    customRightArrow={<CustomArrow direction="right" />}
-                    customLeftArrow={<CustomArrow direction="left" />}
-                    arrows={true}
-                    swipeable={true}
-                    draggable={true}
-                    removeArrowOnDeviceType={["tablet", "mobile"]}
-                >
-                    {videoList.map((video, idx) => (
-                        <div
-                            className={styles.cardContainer}
-                            key={idx}
-                            onClick={() => handleVideoClick(video.id)}
-                        >
-                            <div className={styles.card}>
-                                <img
-                                    src={video.thumbnailUrl}
-                                    alt={video.title}
-                                    className={styles.thumbnail}
-                                />
+                {loadingVideos ? (
+                    <div className={styles.loader}>불러오는 중<span className={styles.ellipsis}>...</span></div>
+                ) : (
+                    <Carousel
+                        responsive={responsive}
+                        infinite={true}
+                        autoPlay={true}
+                        autoPlaySpeed={3000}
+                        keyBoardControl={true}
+                        customTransition="transform 300ms ease-in-out"
+                        customRightArrow={<CustomArrow direction="right" />}
+                        customLeftArrow={<CustomArrow direction="left" />}
+                        arrows={true}
+                        swipeable={true}
+                        draggable={true}
+                        removeArrowOnDeviceType={["tablet", "mobile"]}
+                    >
+                        {videoList.map((video, idx) => (
+                            <div
+                                className={styles.cardContainer}
+                                key={idx}
+                                onClick={() => handleVideoClick(video)}
+                            >
+                                <div className={styles.card}>
+                                    <img
+                                        src={video.thumbnailUrl}
+                                        alt={video.title}
+                                        className={styles.thumbnail}
+                                    />
+                                </div>
+                                <p>{video.title}</p>
                             </div>
-                            <p>{video.title}</p>
-                        </div>
-                    ))}
-                </Carousel>
+                        ))}
+                    </Carousel>
+                )}
             </div>
 
             {/* Video Modal */}
             {isModalOpen && (
                 <div className={styles.modal} onClick={() => setIsModalOpen(false)}>
-                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                        <button
-                            className={styles.closeButton}
-                            onClick={() => setIsModalOpen(false)}
-                        >
-                            ×
-                        </button>
+                    <div className={styles.modalContent} onClick={(event) => event.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>{videoList.find(v => v.id === selectedVideo?.id)?.title}</h2>
+                            <div className={styles.actionGroup}>
+                                <button className={styles.primaryAction} onClick={async () => {
+                                    if (!selectedVideo) return;
+                                    try {
+                                        // Placeholder score values; replace with real gameplay values when available
+                                        await submitGameScore({
+                                            video_id: selectedVideo.id,
+                                            total_score: 100,
+                                            accuracy_score: null,
+                                            timing_score: null,
+                                        });
+                                        setIsModalOpen(false);
+                                        // Refresh rankings after submit
+                                        setLoadingRankings(true);
+                                        const rows = await getRankings(selectedVideo.id, 10);
+                                        setRankingList(rows.map(r => ({ userId: r.user_id, score: r.total_score })));
+                                    } catch {
+                                        alert('점수 제출에 실패했습니다. 다시 시도해주세요.');
+                                    } finally {
+                                        setLoadingRankings(false);
+                                    }
+                                }}>운동 완료</button>
+                                <button
+                                    className={styles.closeButton}
+                                    onClick={() => setIsModalOpen(false)}
+                                >
+                                    닫기
+                                </button>
+                            </div>
+                        </div>
                         <iframe
                             width="100%"
-                            height="500"
-                            src={`https://www.youtube.com/embed/${selectedVideo}`}
+                            height="520"
+                            src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
                             title="YouTube video player"
                             frameBorder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -158,6 +177,18 @@ const Game = () => {
 
             <div className="ranking">
                 <h1>랭킹보기</h1>
+                {/* Video selection tabs for rankings */}
+                <div className={styles.tabs}>
+                    {videoList.map((v) => (
+                        <button
+                            key={v.id}
+                            className={`${styles.tab} ${selectedVideo?.id === v.id ? styles.tabActive : ''}`}
+                            onClick={() => setSelectedVideo({ id: v.id, youtubeId: v.youtubeId })}
+                        >
+                            {v.title}
+                        </button>
+                    ))}
+                </div>
                 <div className={styles.rankingList}>
                     <div className={styles.rankingHeader}>
                         <span>등수</span>
@@ -165,14 +196,27 @@ const Game = () => {
                         <span></span>
                         <span>점수</span>
                     </div>
-                    {rankingList.map((item, idx) => (
-                        <div key={idx} className={styles.rankingItem}>
-                            <span className={styles.rankNumber}>{idx + 1}</span>
-                            <span className={styles.rankAvatar}>{/* Avatar 이미지 */}</span>
-                            <span className={styles.rankName}>{item}</span>
-                            <span className={styles.rankScore}>20</span>
-                        </div>
-                    ))}
+                    {loadingRankings ? (
+                        <div className={styles.loader}>랭킹 불러오는 중<span className={styles.ellipsis}>...</span></div>
+                    ) : (
+                        rankingList.length === 0 ? (
+                            <div className={styles.rankingItem}>
+                                <span></span>
+                                <span></span>
+                                <span className={styles.rankName} style={{ textAlign: 'center' }}>아직 랭킹 데이터가 없습니다. 첫 기록의 주인공이 되어보세요!</span>
+                                <span></span>
+                            </div>
+                        ) : (
+                            rankingList.map((item, idx) => (
+                                <div key={idx} className={styles.rankingItem}>
+                                    <span className={styles.rankNumber}>{idx + 1}</span>
+                                    <span className={styles.rankAvatar}>{/* Avatar 이미지 */}</span>
+                                    <span className={styles.rankName}>User {item.userId}</span>
+                                    <span className={styles.rankScore}>{item.score}</span>
+                                </div>
+                            ))
+                        )
+                    )}
                 </div>
             </div>
         </>
