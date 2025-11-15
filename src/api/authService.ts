@@ -52,6 +52,6 @@ export async function loginUser(params: { username: string; password: string }):
 }
 
 export async function logoutUser() {
-    const response = await apiClient.get('/api/auth/logout');
+    const response = await apiClient.post('/api/auth/logout');
     return response;
 }

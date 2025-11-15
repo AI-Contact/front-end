@@ -148,6 +148,7 @@ const Game = () => {
                                         setLoadingRankings(true);
                                         const rows = await getRankings(selectedVideo.id, 10);
                                         setRankingList(rows.map(r => ({ userId: r.user_id, score: r.total_score })));
+                                        setIsModalOpen(false);
                                     } catch {
                                         alert('점수 제출에 실패했습니다. 다시 시도해주세요.');
                                     } finally {
