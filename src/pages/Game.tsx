@@ -143,7 +143,7 @@ const Game = () => {
                                             accuracy_score: null,
                                             timing_score: null,
                                         });
-                                        setIsModalOpen(false);
+
                                         // Refresh rankings after submit
                                         setLoadingRankings(true);
                                         const rows = await getRankings(selectedVideo.id, 10);

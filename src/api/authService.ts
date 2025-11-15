@@ -50,3 +50,8 @@ export async function loginUser(params: { username: string; password: string }):
     });
     return data;
 }
+
+export async function logoutUser() {
+    const response = await apiClient.get('/api/auth/logout');
+    return response;
+}

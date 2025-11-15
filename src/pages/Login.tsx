@@ -19,7 +19,7 @@ const Login = () => {
                 if (res.refresh_token) {
                     setRefreshToken(res.refresh_token);
                 }
-                navigate('/');
+                navigate('/home');
             })
             .catch((error: { message?: string }) => {
                 alert(error?.message || '로그인에 실패했습니다.');
