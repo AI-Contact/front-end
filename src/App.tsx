@@ -13,9 +13,8 @@ import { FaBars } from 'react-icons/fa6'
 import { IoMdNotifications } from 'react-icons/io'
 import { getAccessToken } from './auth/token'
 
-const ProtectedRoute = ({ element: Element, ...rest }) => {
+const ProtectedRoute = ({ element: Element, ...rest }: { element: React.ElementType }) => {
   const isAuthenticated = getAccessToken();
-
   return isAuthenticated ? (
     // If authenticated, render the requested component
     <Element {...rest} />
