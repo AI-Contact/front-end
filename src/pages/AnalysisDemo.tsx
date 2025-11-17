@@ -32,7 +32,7 @@ const AnalysisDemo = () => {
   const { mode, exercise: exerciseData } =
     (location.state as { mode?: string; exercise?: { title: string } }) || {};
 
-  const [exercise, setExercise] = useState(exerciseData?.title || "팔굽혀펴기");
+  const exercise = exerciseData?.title || "팔굽혀펴기";
   const [targetCount, setTargetCount] = useState(3);
   const [isRunning, setIsRunning] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -190,8 +190,7 @@ const AnalysisDemo = () => {
           // 결과 표시
           if (data.result.rep_count) {
             alert(
-              `운동 완료!\n횟수: ${
-                data.result.rep_count
+              `운동 완료!\n횟수: ${data.result.rep_count
               }\n평균 점수: ${data.result.total_score.toFixed(2)}`
             );
           }
