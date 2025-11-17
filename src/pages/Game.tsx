@@ -12,6 +12,15 @@ interface VideoItem {
     thumbnailUrl: string;
 }
 
+interface GameResults {
+    totalScore: number;
+    perfectHits: number;
+    greatHits: number;
+    goodHits: number;
+    missHits: number;
+    accuracy: number;
+}
+
 const Game = () => {
     const responsive = {
         superLargeDesktop: {
@@ -53,6 +62,9 @@ const Game = () => {
 
     const [showHit, setShowHit] = useState(false);
     const [hitType, setHitType] = useState('');
+    const [showResults, setShowResults] = useState(false);
+    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
+    const [gameResults, setGameResults] = useState<GameResults | null>(null);
 
     // const handleNoteHit = (accuracy: string) => {
     //     setHitType(accuracy);
@@ -61,17 +73,26 @@ const Game = () => {
     // };
 
     useEffect(() => {
-        const hitTypes = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
+        if (!isModalOpen) return;
+
+        const hitTypes: Array<keyof typeof hitCounts> = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
 
         const interval = setInterval(() => {
             const randomType = hitTypes[Math.floor(Math.random() * hitTypes.length)];
+
+            // increment the hitcounts
+            setHitCounts(prev => ({
+                ...prev,
+                [randomType]: prev[randomType] + 1
+            }));
+
             setHitType(randomType);
             setShowHit(true);
             setTimeout(() => setShowHit(false), 500);
         }, 2000); // Trigger every 2 seconds
 
         return () => clearInterval(interval);
-    }, []);
+    }, [isModalOpen]);
 
     useEffect(() => {
         setLoadingVideos(true);
@@ -104,8 +125,48 @@ const Game = () => {
 
     const handleVideoClick = (video: VideoItem) => {
         setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
+        setShowResults(false);
+        setHitCounts({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
         setIsModalOpen(true);
     };
+
+    const handleGameComplete = async () => {
+        if (!selectedVideo) return;
+
+        const totalHits = hitCounts.PERFECT + hitCounts.GREAT + hitCounts.GOOD + hitCounts.MISS;
+        const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GREAT * 70) + (hitCounts.GOOD * 40);
+        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.MISS) / totalHits) * 100 : 0;
+
+        const results: GameResults = {
+            totalScore,
+            perfectHits: hitCounts.PERFECT,
+            greatHits: hitCounts.GREAT,
+            goodHits: hitCounts.GOOD,
+            missHits: hitCounts.MISS,
+            accuracy: Math.round(accuracy * 10) / 10
+        };
+
+        setGameResults(results);
+        setShowResults(true);
+
+        try {
+            // await submitGameScore({
+            //     video_id: selectedVideo.id,
+            //     total_score: totalScore,
+            //     accuracy_score: accuracy,
+            //     timing_score: null,
+            // });
+
+            setLoadingRankings(true);
+            const rows = await getRankings(selectedVideo.id);
+            setRankingList(rows.map(r => ({ userId: r.user_id, score: r.total_score })));
+        } catch {
+            alert('점수 제출에 실패했습니다. 다시 시도해주세요.');
+        } finally {
+            setLoadingRankings(false);
+        }
+    };
+
 
     return (
         <>
@@ -152,61 +213,90 @@ const Game = () => {
             {isModalOpen && (
                 <div className={styles.modal} onClick={() => setIsModalOpen(false)}>
                     <div className={styles.modalContent} onClick={(event) => event.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h2 className={styles.modalTitle}>{videoList.find(v => v.id === selectedVideo?.id)?.title}</h2>
-                            <div className={styles.actionGroup}>
-                                <button className={styles.primaryAction} onClick={async () => {
-                                    if (!selectedVideo) return;
-                                    try {
-                                        // Placeholder score values; replace with real gameplay values when available
-                                        await submitGameScore({
-                                            video_id: selectedVideo.id,
-                                            total_score: 100,
-                                            accuracy_score: null,
-                                            timing_score: null,
-                                        });
+                        {
+                            !showResults ? (
+                                <>
+                                    <div className={styles.modalHeader}>
+                                        <h2 className={styles.modalTitle}>{videoList.find(v => v.id === selectedVideo?.id)?.title}</h2>
+                                        <div className={styles.actionGroup}>
+                                            <button className={styles.primaryAction} onClick={handleGameComplete}>운동 완료</button>
+                                            <button
+                                                className={styles.closeButton}
+                                                onClick={() => setIsModalOpen(false)}
+                                            >
+                                                닫기
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className={styles.videoContainer}>
+                                        {/* The new element for showing the hit status */}
+                                        <div className={styles.hitStatusOverlay}>
+                                            <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
+                                                hitType === 'GREAT' ? styles.hitTextGreat :
+                                                    hitType === 'GOOD' ? styles.hitTextGood :
+                                                        hitType === 'MISS' ? styles.hitTextMiss : ''
+                                                }`}>
+                                                {hitType}
+                                            </p>
+                                        </div>
 
-                                        // Refresh rankings after submit
-                                        setLoadingRankings(true);
-                                        const rows = await getRankings(selectedVideo.id, 10);
-                                        setRankingList(rows.map(r => ({ userId: r.user_id, score: r.total_score })));
-                                        setIsModalOpen(false);
-                                    } catch {
-                                        alert('점수 제출에 실패했습니다. 다시 시도해주세요.');
-                                    } finally {
-                                        setLoadingRankings(false);
-                                    }
-                                }}>운동 완료</button>
-                                <button
-                                    className={styles.closeButton}
-                                    onClick={() => setIsModalOpen(false)}
-                                >
-                                    닫기
-                                </button>
-                            </div>
-                        </div>
-                        <div className={styles.videoContainer}>
-                            {/* The new element for showing the hit status */}
-                            <div className={styles.hitStatusOverlay}>
-                                <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
-                                    hitType === 'GREAT' ? styles.hitTextGreat :
-                                        hitType === 'GOOD' ? styles.hitTextGood :
-                                            hitType === 'MISS' ? styles.hitTextMiss : ''
-                                    }`}>
-                                    {hitType}
-                                </p>
-                            </div>
+                                        <iframe
+                                            width="100%"
+                                            height="520"
+                                            src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
+                                            title="YouTube video player"
+                                            frameBorder="0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className={styles.modalHeader}>
+                                        <h2 className={styles.modalTitle}>{videoList.find(v => v.id === selectedVideo?.id)?.title}</h2>
+                                        <div className={styles.actionGroup}>
+                                            <button
+                                                className={styles.closeButton}
+                                                onClick={() => setIsModalOpen(false)}
+                                            >
+                                                닫기
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className={styles.totalScoreContainer}>
+                                        <div className={styles.scoreLabel}>총 점수</div>
+                                        <div className={styles.totalScoreValue}>
+                                            {gameResults?.totalScore}
+                                        </div>
+                                        <div className={styles.accuracyLabel}>
+                                            평균 정확도: {gameResults?.accuracy}%
+                                        </div>
+                                    </div>
 
-                            <iframe
-                                width="100%"
-                                height="520"
-                                src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
-                                title="YouTube video player"
-                                frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                            ></iframe>
-                        </div>
+                                    <div className={styles.hitDetailGrid}>
+                                        <div className={`${styles.hitDetailCard} ${styles.perfectCard}`}>
+                                            <div className={styles.hitDetailLabel}>PERFECT</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.perfectHits}</div>
+                                        </div>
+                                        <div className={`${styles.hitDetailCard} ${styles.greatCard}`}>
+                                            <div className={styles.hitDetailLabel}>GREAT</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.greatHits}</div>
+                                        </div>
+                                        <div className={`${styles.hitDetailCard} ${styles.goodCard}`}>
+                                            <div className={styles.hitDetailLabel}>GOOD</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.goodHits}</div>
+                                        </div>
+                                        <div className={`${styles.hitDetailCard} ${styles.missCard}`}>
+                                            <div className={styles.hitDetailLabel}>MISS</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.missHits}</div>
+                                        </div>
+                                    </div>
+                                </>
+                            )
+                        }
+
+
                     </div>
                 </div>
             )}
