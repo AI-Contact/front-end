@@ -116,40 +116,20 @@ const Workout = () => {
         setIsPlaying(false); // 새 운동 선택 시 영상 재생 초기화
     };
 
-    // 운동 시작 핸들러
-    const handleStartExercise = async () => {
+    // 웹캠 분석 핸들러
+    const handleWebcamAnalysis = () => {
         const exercise = exercises[selectedExerciseIndex];
-
-        // 운동 분석 데모 페이지로 이동
         navigate('/analysis-demo', {
-            state: { exercise }
+            state: { exercise, mode: 'webcam' }
         });
+    };
 
-        // TODO: 나중에 API 연결이 필요하면 아래 주석을 해제
-        /*
-        try {
-            const recordData = await startExercise({
-                exercise_id: exercise.id,
-                duration: 0,
-                repetitions: 0,
-                sets_completed: 0,
-            });
-
-            console.log('=== 운동 시작 API 응답 ===');
-            console.log('Record ID:', recordData.id);
-            console.log('Exercise ID:', recordData.exercise_id);
-            console.log('Started At:', recordData.started_at);
-            console.log('전체 응답 데이터:', recordData);
-
-            // 운동 세션 페이지로 이동
-            navigate('/exercise-session', {
-                state: { exercise, recordData }
-            });
-        } catch (err) {
-            console.error('운동 시작 실패:', err);
-            alert('운동 시작에 실패했습니다.');
-        }
-        */
+    // 영상 업로드 핸들러
+    const handleVideoUpload = () => {
+        const exercise = exercises[selectedExerciseIndex];
+        navigate('/analysis-demo', {
+            state: { exercise, mode: 'upload' }
+        });
     };
 
     // 로딩 중일 때
@@ -282,11 +262,17 @@ const Workout = () => {
                         </div>
                     </div>
 
-                    {/* Start Button */}
-                    <button className={styles.startButton} onClick={handleStartExercise}>
-                        <span className={styles.startButtonText}>시작하러 가기</span>
-                        <FiArrowRight className={styles.arrowIcon} />
-                    </button>
+                    {/* Start Buttons */}
+                    <div className={styles.buttonGroup}>
+                        <button className={styles.startButton} onClick={handleWebcamAnalysis}>
+                            <span className={styles.startButtonText}>웹캠 영상 분석</span>
+                            <FiArrowRight className={styles.arrowIcon} />
+                        </button>
+                        <button className={styles.uploadButton} onClick={handleVideoUpload}>
+                            <span className={styles.startButtonText}>영상 업로드</span>
+                            <FiArrowRight className={styles.arrowIcon} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

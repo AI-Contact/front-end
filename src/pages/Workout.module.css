@@ -257,10 +257,16 @@
     color: #45556c;
 }
 
+.buttonGroup {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+}
+
 .startButton {
     background-color: #5724ff;
     height: 59px;
-    width: 226px;
+    flex: 1;
     border-radius: 16px;
     border: none;
     box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1),
@@ -271,11 +277,31 @@
     gap: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
-    margin-top: auto;
 }
 
 .startButton:hover {
     background-color: #4a1fe6;
+    transform: translateY(-2px);
+}
+
+.uploadButton {
+    background-color: #2b7fff;
+    height: 59px;
+    flex: 1;
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1),
+        0px 4px 6px -4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.uploadButton:hover {
+    background-color: #155dfc;
     transform: translateY(-2px);
 }
 

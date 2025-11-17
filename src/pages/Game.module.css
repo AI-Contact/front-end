@@ -202,6 +202,170 @@
     background: #e5e7eb;
 }
 
+/* rhythm game text */
+.videoContainer {
+    position: relative;
+    width: 100%;
+    height: 520px;
+}
+
+.hitStatusOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.hitText {
+    font-size: 8rem;
+    font-weight: bold;
+    color: yellow;
+    text-shadow: 0 0 10px black, 0 0 20px black;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.1s ease-out;
+    margin: 0;
+}
+
+.hitTextVisible {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+.hitTextPerfect {
+    color: #10b981;
+}
+
+.hitTextGreat {
+    color: #3b82f6;
+}
+
+.hitTextGood {
+    color: #f59e0b;
+}
+
+.hitTextMiss {
+    color: #ef4444;
+}
+
+/* result */
+/* --- Total Score Section --- */
+.totalScoreContainer {
+    text-align: center;
+    padding: 24px;
+    margin-bottom: 24px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.scoreLabel {
+    font-size: 16px;
+    color: #6b7280;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.totalScoreValue {
+    font-size: 56px;
+    font-weight: bold;
+    color: #4f46e5;
+}
+
+.accuracyLabel {
+    font-size: 16px;
+    color: #6b7280;
+    margin-top: 8px;
+}
+
+/* --- Hit Details Grid Section --- */
+.hitDetailList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+.hitDetailCard {
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.hitDetailLabel {
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.hitDetailValue {
+    font-size: 36px;
+    font-weight: bold;
+}
+
+
+/* PERFECT */
+.perfectCard {
+    background-color: #f0fdf4;
+    border: 2px solid #10b981;
+}
+
+.perfectCard .hitDetailLabel {
+    color: #059669;
+}
+
+.perfectCard .hitDetailValue {
+    color: #10b981;
+}
+
+/* GREAT */
+.greatCard {
+    background-color: #eff6ff;
+    border: 2px solid #3b82f6;
+}
+
+.greatCard .hitDetailLabel {
+    color: #2563eb;
+}
+
+.greatCard .hitDetailValue {
+    color: #3b82f6;
+}
+
+/* GOOD */
+.goodCard {
+    background-color: #fffbeb;
+    border: 2px solid #f59e0b;
+}
+
+.goodCard .hitDetailLabel {
+    color: #d97706;
+}
+
+.goodCard .hitDetailValue {
+    color: #f59e0b;
+}
+
+/* MISS */
+.missCard {
+    background-color: #fef2f2;
+    border: 2px solid #ef4444;
+}
+
+.missCard .hitDetailLabel {
+    color: #dc2626;
+}
+
+.missCard .hitDetailValue {
+    color: #ef4444;
+}
+
+
 /* Tabs for selecting video */
 .tabs {
     display: flex;
