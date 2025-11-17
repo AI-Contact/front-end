@@ -202,6 +202,64 @@
     background: #e5e7eb;
 }
 
+/* rhythm game text */
+.videoContainer {
+    position: relative;
+    width: 100%;
+    height: 520px;
+}
+
+.hitStatusOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Add these classes to Game.module.css */
+
+.hitText {
+    font-size: 8rem;
+    font-weight: bold;
+    color: yellow;
+    text-shadow: 0 0 10px black, 0 0 20px black;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.1s ease-out;
+    margin: 0;
+}
+
+.hitTextVisible {
+    opacity: 1 !important;
+    transform: scale(1) !important;
+}
+
+.hitTextPerfect {
+    color: #00FF00;
+    /* Gold */
+}
+
+.hitTextGreat {
+    color: #FFA500;
+    /* Green */
+}
+
+.hitTextGood {
+    color: #f6ff00;
+    /* Orange */
+}
+
+.hitTextMiss {
+    color: #FF0000;
+    /* Red */
+}
+
 /* Tabs for selecting video */
 .tabs {
     display: flex;

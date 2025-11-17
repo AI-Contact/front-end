@@ -51,6 +51,28 @@ const Game = () => {
     const [loadingRankings, setLoadingRankings] = useState<boolean>(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const [showHit, setShowHit] = useState(false);
+    const [hitType, setHitType] = useState('');
+
+    // const handleNoteHit = (accuracy: string) => {
+    //     setHitType(accuracy);
+    //     setShowHit(true);
+    //     setTimeout(() => setShowHit(false), 500);
+    // };
+
+    useEffect(() => {
+        const hitTypes = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
+
+        const interval = setInterval(() => {
+            const randomType = hitTypes[Math.floor(Math.random() * hitTypes.length)];
+            setHitType(randomType);
+            setShowHit(true);
+            setTimeout(() => setShowHit(false), 500);
+        }, 2000); // Trigger every 2 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
     useEffect(() => {
         setLoadingVideos(true);
         getChallengeVideos()
@@ -163,15 +185,28 @@ const Game = () => {
                                 </button>
                             </div>
                         </div>
-                        <iframe
-                            width="100%"
-                            height="520"
-                            src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
-                            title="YouTube video player"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                        ></iframe>
+                        <div className={styles.videoContainer}>
+                            {/* The new element for showing the hit status */}
+                            <div className={styles.hitStatusOverlay}>
+                                <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
+                                    hitType === 'GREAT' ? styles.hitTextGreat :
+                                        hitType === 'GOOD' ? styles.hitTextGood :
+                                            hitType === 'MISS' ? styles.hitTextMiss : ''
+                                    }`}>
+                                    {hitType}
+                                </p>
+                            </div>
+
+                            <iframe
+                                width="100%"
+                                height="520"
+                                src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            ></iframe>
+                        </div>
                     </div>
                 </div>
             )}
