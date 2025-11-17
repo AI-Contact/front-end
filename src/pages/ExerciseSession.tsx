@@ -46,12 +46,26 @@ const ExerciseSession = () => {
                 console.log('Completed At:', completeResponse.completed_at);
                 console.log('Duration (분):', completeResponse.duration);
                 console.log('전체 응답 데이터:', completeResponse);
+
+
+                // 계산된 운동 시간을 함께 전달
+                navigate('/workout', {
+                    replace: false,
+                    state: {
+                        completedExercise: {
+                            exerciseId: exercise.id,
+                            durationInSeconds: durationInSeconds
+                        }
+                    }
+                });
+                return;
+
             } catch (err) {
                 console.error('운동 완료 기록 실패:', err);
             }
         }
 
-        // replace: false를 사용해서 새로운 히스토리 엔트리를 생성하여 location.key가 변경되도록 함
+
         navigate('/workout', { replace: false });
     };
 

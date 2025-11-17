@@ -1,9 +1,9 @@
 import styles from './Workout.module.css';
-import { FiClock, FiActivity, FiPlay, FiArrowRight } from 'react-icons/fi';
+import { /* FiClock, FiActivity, */ FiPlay, FiArrowRight } from 'react-icons/fi';
 import { IoCheckmarkCircle } from 'react-icons/io5';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getExercises, startExercise, getMyRecords } from '../api/exerciseService';
+import { getExercises, /* startExercise, */ getMyRecords } from '../api/exerciseService';
 
 const Workout = () => {
     // 상태 관리
@@ -21,6 +21,14 @@ const Workout = () => {
             try {
                 setLoading(true);
                 setError(null);
+
+                // 운동 완료 후 전달된 데이터 확인
+                const completedExercise = (location.state as { completedExercise?: { exerciseId: number; durationInSeconds: number } })?.completedExercise;
+                if (completedExercise) {
+                    console.log('=== 완료된 운동 정보 ===');
+                    console.log('Exercise ID:', completedExercise.exerciseId);
+                    console.log('Duration (초):', completedExercise.durationInSeconds);
+                }
 
                 // 운동 목록 가져오기
                 const data = await getExercises({ limit: 20 });
@@ -45,24 +53,50 @@ const Workout = () => {
                     return acc;
                 }, {});
 
+                // 방금 완료한 운동의 시간을 즉시 추가 (API 응답 전에 UI 업데이트)
+                if (completedExercise) {
+                    const existingTime = recordTimeMap[completedExercise.exerciseId] || 0;
+                    recordTimeMap[completedExercise.exerciseId] = existingTime + completedExercise.durationInSeconds;
+                    console.log('=== 업데이트된 운동 시간 ===');
+                    console.log(`Exercise ${completedExercise.exerciseId}: ${recordTimeMap[completedExercise.exerciseId]}초`);
+                }
+
                 console.log('=== 운동 시간 계산 결과 ===');
                 console.log('recordTimeMap:', recordTimeMap);
 
                 // API 데이터를 UI에 맞게 변환
-                const formattedExercises = data.map((exercise: any) => ({
-                    id: exercise.id,
-                    title: exercise.name,
-                    difficulty: exercise.difficulty === 'beginner' ? '초급' :
-                               exercise.difficulty === 'intermediate' ? '중급' : '고급',
-                    completion: Math.floor(Math.random() * 40 + 60), // 임시 완료율
-                    time: '30분', // 임시 시간
-                    calories: `${exercise.calories_per_minute * 30} kcal`,
-                    description: exercise.description,
-                    benefits: exercise.muscle_groups || [], // 배열이 없으면 빈 배열
-                    thumbnail: exercise.thumbnail_url || 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800',
-                    videoId: 'hAGfBjvIRFI', // 임시 비디오 ID
-                    totalTimeSeconds: recordTimeMap[exercise.id] || 0, // 총 운동 시간 (초)
-                }));
+                const formattedExercises = data.map((exercise: any) => {
+                    const totalSeconds = recordTimeMap[exercise.id] || 0;
+                    // const hours = Math.floor(totalSeconds / 3600);
+                    // const minutes = Math.floor((totalSeconds % 3600) / 60);
+                    // const seconds = totalSeconds % 60;
+
+                    // let totalTimeText = '';
+                    // if (hours > 0) {
+                    //     totalTimeText = `${hours}시간 ${minutes}분 ${seconds}초`;
+                    // } else if (minutes > 0) {
+                    //     totalTimeText = `${minutes}분 ${seconds}초`;
+                    // } else {
+                    //     totalTimeText = `${seconds}초`;
+                    // }
+
+                    return {
+                        id: exercise.id,
+                        title: exercise.name,
+                        difficulty: exercise.difficulty === 'beginner' ? '초급' :
+                                   exercise.difficulty === 'intermediate' ? '중급' : '고급',
+                        // completion: Math.floor(Math.random() * 40 + 60), // 임시 완료율
+                        // time: '30분', // 임시 시간
+                        // calories: `${exercise.calories_per_minute * 30} kcal`,
+                        description: exercise.description,
+                        benefits: exercise.muscle_groups || [], // 배열이 없으면 빈 배열
+                        thumbnail: exercise.thumbnail_url || 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800',
+                        videoId: 'hAGfBjvIRFI', // 임시 비디오 ID
+                        totalTimeSeconds: totalSeconds, // 총 운동 시간 (초)
+                        // totalTimeText: totalTimeText, // 포맷된 시간 텍스트
+                        averageScore: 0, // TODO: MediaPipe에서 추출한 평균 점수 (100점 만점)
+                    };
+                });
 
                 setExercises(formattedExercises);
             } catch (err) {
@@ -74,7 +108,7 @@ const Workout = () => {
         };
 
         fetchExercises();
-    }, [location.key]); // location.key가 변경될 때마다 (페이지 이동 시마다) 데이터 새로고침
+    }, [location.key, location.state]); // location.key 또는 state가 변경될 때마다 데이터 새로고침
 
     // 운동 카드 클릭 핸들러
     const handleExerciseClick = (index: number) => {
@@ -86,6 +120,13 @@ const Workout = () => {
     const handleStartExercise = async () => {
         const exercise = exercises[selectedExerciseIndex];
 
+        // 운동 분석 데모 페이지로 이동
+        navigate('/analysis-demo', {
+            state: { exercise }
+        });
+
+        // TODO: 나중에 API 연결이 필요하면 아래 주석을 해제
+        /*
         try {
             const recordData = await startExercise({
                 exercise_id: exercise.id,
@@ -108,6 +149,7 @@ const Workout = () => {
             console.error('운동 시작 실패:', err);
             alert('운동 시작에 실패했습니다.');
         }
+        */
     };
 
     // 로딩 중일 때
@@ -163,9 +205,9 @@ const Workout = () => {
                             <div className={styles.imageOverlay} />
 
                             {/* Completion Badge */}
-                            <div className={styles.completionBadge}>
+                            {/* <div className={styles.completionBadge}>
                                 완료율 {featuredExercise.completion}%
-                            </div>
+                            </div> */}
 
                             {/* Play Button */}
                             <div
@@ -202,8 +244,7 @@ const Workout = () => {
                     </div>
 
                     {/* Stats Cards */}
-                    <div className={styles.statsCards}>
-                        {/* Time Card */}
+                    {/* <div className={styles.statsCards}>
                         <div className={`${styles.statCard} ${styles.time}`}>
                             <div className={styles.statHeader}>
                                 <FiClock className={`${styles.statIcon} ${styles.blue}`} />
@@ -214,7 +255,6 @@ const Workout = () => {
                             <p className={`${styles.statLabel} ${styles.blue}`}>소요시간</p>
                         </div>
 
-                        {/* Calories Card */}
                         <div className={`${styles.statCard} ${styles.calories}`}>
                             <div className={styles.statHeader}>
                                 <FiActivity className={`${styles.statIcon} ${styles.orange}`} />
@@ -224,7 +264,7 @@ const Workout = () => {
                             </div>
                             <p className={`${styles.statLabel} ${styles.orange}`}>칼로리</p>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Description */}
                     <p className={styles.description}>{featuredExercise.description}</p>
@@ -273,14 +313,19 @@ const Workout = () => {
                                 <h3 className={styles.cardTitle}>{exercise.title}</h3>
                                 <div className={styles.cardStats}>
                                     {/* Time Badge */}
-                                    <div className={`${styles.cardBadge} ${styles.time}`}>
+                                    {/* <div className={`${styles.cardBadge} ${styles.time}`}>
                                         <FiClock className={styles.badgeIcon} />
                                         <span>{exercise.time}</span>
-                                    </div>
+                                    </div> */}
                                     {/* Calories Badge */}
-                                    <div className={`${styles.cardBadge} ${styles.calories}`}>
+                                    {/* <div className={`${styles.cardBadge} ${styles.calories}`}>
                                         <FiActivity className={styles.badgeIcon} />
                                         <span>{exercise.calories}</span>
+                                    </div> */}
+                                    {/* Average Score Badge */}
+                                    <div className={`${styles.cardBadge} ${styles.completed}`}>
+                                        <IoCheckmarkCircle className={styles.badgeIcon} />
+                                        <span>{exercise.averageScore > 0 ? `${exercise.averageScore}점` : '수행 전'}</span>
                                     </div>
                                     {/* Total Time Badge */}
                                     <div className={`${styles.cardBadge} ${styles.completed}`}>

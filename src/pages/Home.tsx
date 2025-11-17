@@ -25,13 +25,32 @@ const Home = () => {
     useEffect(() => {
         const fetchProgressData = async () => {
             try {
+
+                // 운동 완료 후 전달된 데이터 확인
+                const completedExercise = (location.state as { completedExercise?: { exerciseId: number; durationInSeconds: number } })?.completedExercise;
+                if (completedExercise) {
+                    console.log('=== Home - 완료된 운동 정보 ===');
+                    console.log('Exercise ID:', completedExercise.exerciseId);
+                    console.log('Duration (초):', completedExercise.durationInSeconds);
+                }
+
+
                 // 운동 목록 가져오기
                 const exercises = await getExercises({ limit: 5 });
 
                 // 내 운동 기록 가져오기
-                let myRecords: Array<{ exercise_id: number; duration?: number }> = [];
+
+                let myRecords: Array<{
+                    exercise_id: number;
+                    duration?: number;
+                    accuracy_score?: number;
+                    form_score?: number;
+                    tempo_score?: number;
+                }> = [];
                 try {
                     myRecords = await getMyRecords({ limit: 100 });
+                    console.log('Home - 내 운동 기록:', myRecords);
+
                 } catch (recordErr) {
                     console.log('운동 기록 조회 실패:', recordErr);
                 }
@@ -43,6 +62,51 @@ const Home = () => {
                     acc[exerciseId] = (acc[exerciseId] || 0) + durationInSeconds;
                     return acc;
                 }, {});
+
+
+                // 각 운동별 평균 점수 계산
+                const averageScoreMap: Record<number, number> = {};
+                const scoreCountMap: Record<number, number> = {};
+
+                myRecords.forEach((record) => {
+                    const exerciseId = record.exercise_id;
+
+                    // accuracy_score, form_score, tempo_score가 있으면 평균 계산
+                    const scores = [
+                        record.accuracy_score,
+                        record.form_score,
+                        record.tempo_score
+                    ].filter(score => score !== undefined && score !== null) as number[];
+
+                    if (scores.length > 0) {
+                        const recordAverage = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+
+                        if (!averageScoreMap[exerciseId]) {
+                            averageScoreMap[exerciseId] = 0;
+                            scoreCountMap[exerciseId] = 0;
+                        }
+
+                        averageScoreMap[exerciseId] += recordAverage;
+                        scoreCountMap[exerciseId] += 1;
+                    }
+                });
+
+                // 각 운동별 최종 평균 점수 계산
+                Object.keys(averageScoreMap).forEach((key) => {
+                    const exerciseId = parseInt(key);
+                    averageScoreMap[exerciseId] = Math.round(averageScoreMap[exerciseId] / scoreCountMap[exerciseId]);
+                });
+
+                console.log('Home - 평균 점수 맵:', averageScoreMap);
+
+                // 방금 완료한 운동의 시간을 즉시 추가 (API 응답 전에 UI 업데이트)
+                if (completedExercise) {
+                    const existingTime = recordTimeMap[completedExercise.exerciseId] || 0;
+                    recordTimeMap[completedExercise.exerciseId] = existingTime + completedExercise.durationInSeconds;
+                    console.log('=== Home - 업데이트된 운동 시간 ===');
+                    console.log(`Exercise ${completedExercise.exerciseId}: ${recordTimeMap[completedExercise.exerciseId]}초`);
+                }
+
 
                 // 모든 운동의 시간을 먼저 계산
                 const exerciseTimes = exercises.map((exercise: { id: number; name: string }) => {
@@ -72,11 +136,15 @@ const Home = () => {
                     // 최대 시간 대비 퍼센티지 계산 (상대적 진행도)
                     const percentage = Math.round((totalSeconds / maxSeconds) * 100);
 
+                    // 평균 점수 가져오기
+                    const averageScore = averageScoreMap[exercise.id] || 0;
+
                     return {
                         emoji: '🏋️',
                         name: exercise.name,
                         timeText: timeText,
                         percentage: percentage,
+                        averageScore: averageScore, // 평균 점수 추가
                     };
                 });
 
@@ -87,7 +155,7 @@ const Home = () => {
         };
 
         fetchProgressData();
-    }, [location.key]);
+    }, [location.key, location.state]);
 
     // 더미 데이터
     const rankings = [
@@ -118,7 +186,7 @@ const Home = () => {
                             오늘의 운동 시작
                         </button>
                         <button className={styles.secondaryButton} onClick={handleViewProgress}>
-                            진행상황 보기
+                            나의 운동 점수 보러가기
                         </button>
                     </div>
                 </div>
@@ -143,7 +211,7 @@ const Home = () => {
 
             {/* Weekly Progress */}
             <div className={styles.weeklyProgress} ref={progressRef}>
-                <h2 className={styles.cardTitle}>이번 주 진행상황</h2>
+                <h2 className={styles.cardTitle}>나의 운동 정확도</h2>
                 <div className={styles.progressList}>
                     {progress.map((item, index) => (
                         <div key={index} className={styles.progressItem}>
@@ -153,7 +221,9 @@ const Home = () => {
                                     <span className={styles.exerciseName}>{item.name}</span>
                                 </div>
                                 <div className={styles.progressRight}>
-                                    <span className={styles.percentage}>{item.timeText}</span>
+                                    <span className={styles.percentage}>
+                                        {item.averageScore > 0 ? `${item.averageScore}점` : '수행 전'}
+                                    </span>
                                     <IoMdTrendingUp className={styles.trendIcon} />
                                 </div>
                             </div>

@@ -20,7 +20,7 @@
 /* Left - Image Section */
 .imageSection {
     position: relative;
-    width: 459px;
+    width: 700px; /* 459px → 700px로 증가 */
     height: 100%;
     overflow: hidden;
 }
@@ -110,10 +110,10 @@
 /* Right - Info Section */
 .infoSection {
     flex: 1;
-    padding: 40px;
+    padding: 32px; /* 40px → 32px로 줄임 */
     display: flex;
     flex-direction: column;
-    gap: 21px;
+    gap: 18px; /* 21px → 18px로 줄임 */
 }
 
 .titleSection {
