@@ -20,7 +20,7 @@
 /* Left - Image Section */
 .imageSection {
     position: relative;
-    width: 459px;
+    width: 700px; /* 459px → 700px로 증가 */
     height: 100%;
     overflow: hidden;
 }
@@ -102,13 +102,18 @@
     color: white;
 }
 
+.videoFrame {
+    border: none;
+    display: block;
+}
+
 /* Right - Info Section */
 .infoSection {
     flex: 1;
-    padding: 40px;
+    padding: 32px; /* 40px → 32px로 줄임 */
     display: flex;
     flex-direction: column;
-    gap: 21px;
+    gap: 18px; /* 21px → 18px로 줄임 */
 }
 
 .titleSection {
@@ -320,6 +325,12 @@
     box-shadow: 0px 0px 15px 3px rgba(43, 127, 255, 0.3);
 }
 
+.exerciseCard.selected {
+    border: 2px solid #5724ff;
+    box-shadow: 0px 0px 20px 5px rgba(87, 36, 255, 0.4);
+    transform: translateY(-4px);
+}
+
 .cardThumbnail {
     position: relative;
     height: 180px;
@@ -346,7 +357,7 @@
 }
 
 .cardInfo {
-    padding: 16px 20px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -362,6 +373,7 @@
 .cardStats {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .cardBadge {
@@ -371,7 +383,9 @@
     padding: 6px 10px;
     border-radius: 6px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .cardBadge.time {
@@ -382,6 +396,11 @@
 .cardBadge.calories {
     background-color: #fff7ed;
     color: #f54900;
+}
+
+.cardBadge.completed {
+    background-color: #f0fdf4;
+    color: #16a34a;
 }
 
 .badgeIcon {

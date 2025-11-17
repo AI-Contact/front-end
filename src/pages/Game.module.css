@@ -142,24 +142,122 @@
 
 .modalContent {
     background-color: white;
-    padding: 20px;
-    border-radius: 8px;
+    padding: 16px 16px 20px 16px;
+    border-radius: 12px;
     position: relative;
-    width: 80%;
-    max-width: 800px;
+    width: 90%;
+    max-width: 960px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+}
+
+/* Modal header with actions */
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 4px 12px 4px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 12px;
+}
+
+.modalTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.actionGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.primaryAction {
+    background: #4f46e5;
+    color: white;
+    border: 1px solid #4f46e5;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.primaryAction:hover {
+    background: #4338ca;
 }
 
 .closeButton {
-    position: absolute;
-    right: 10px;
-    top: 10px;
-    background: none;
-    border: none;
-    font-size: 24px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 16px;
     cursor: pointer;
-    color: #333;
 }
 
 .closeButton:hover {
-    color: #666;
+    background: #e5e7eb;
+}
+
+/* Tabs for selecting video */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0 8px 0;
+}
+
+.tab {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.tab:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+}
+
+.tabActive {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+}
+
+/* Loading indicator */
+.loader {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 0;
+    color: #6b46ff;
+    font-weight: 700;
+}
+
+.ellipsis {
+    display: inline-block;
+    margin-left: 4px;
+    animation: ellipsis-blink 1s infinite ease-in-out;
+}
+
+@keyframes ellipsis-blink {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
 }

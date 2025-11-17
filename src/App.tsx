@@ -1,5 +1,7 @@
 import './App.css'
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
+
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+
 import NavBar from './NavBar'
 import Home from './pages/Home'
 import Report from './pages/Report'
@@ -8,9 +10,27 @@ import Game from './pages/Game'
 import Workout from './pages/Workout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+
+import ExerciseSession from './pages/ExerciseSession'
+import AnalysisDemo from './pages/AnalysisDemo'
+
 import { useState } from 'react'
 import { FaBars } from 'react-icons/fa6'
 import { IoMdNotifications } from 'react-icons/io'
+import { getAccessToken } from './auth/token'
+
+
+const ProtectedRoute = ({ element: Element, ...rest }: { element: React.ElementType }) => {
+  const isAuthenticated = getAccessToken();
+  return isAuthenticated ? (
+    // If authenticated, render the requested component
+    <Element {...rest} />
+  ) : (
+    // If NOT authenticated, redirect to the login page
+    <Navigate to="/login" replace />
+  );
+};
+
 
 function AppContent() {
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
@@ -38,7 +58,7 @@ function AppContent() {
                   <IoMdNotifications />
                 </button>
                 <div className='user-profile'>
-                  <img src="https://via.placeholder.com/40" alt="User" />
+                  <img src="https://ui-avatars.com/api/?name=User&background=4F46E5&color=fff&size=40" alt="User" />
                 </div>
               </div>
             </div>
@@ -52,13 +72,29 @@ function AppContent() {
       {/* 메인 콘텐츠 */}
       <main className={isAuthPage ? 'login-main' : `main-content ${isNavCollapsed ? 'expanded' : ''}`}>
         <Routes>
-          <Route path="/login" element={<Login />}></Route>
-          <Route path="/register" element={<Register />}></Route>
-          <Route path="/" element={<Home />}></Route>
-          <Route path="/workout" element={<Workout />}></Route>
-          <Route path="/report" element={<Report />}></Route>
-          <Route path="/game" element={<Game />}></Route>
-          <Route path="/settings" element={<Settings />}></Route>
+
+          {/* Unprotected Routes (Login and Register) */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* Default Redirect: Send root path to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* **PROTECTED ROUTES** */}
+          {/* Use ProtectedRoute to guard the Home page */}
+          <Route path="/home" element={<ProtectedRoute element={Home} />} />
+
+          {/* Use ProtectedRoute to guard other pages */}
+          <Route path="/workout" element={<ProtectedRoute element={Workout} />} />
+          <Route path="/exercise-session" element={<ExerciseSession />}></Route>
+          <Route path="/report" element={<ProtectedRoute element={Report} />} />
+          <Route path="/analysis-demo" element={<AnalysisDemo />}></Route>
+          <Route path="/game" element={<ProtectedRoute element={Game} />} />
+          <Route path="/settings" element={<ProtectedRoute element={Settings} />} />
+
+
+          <Route path="*" element={<div>404 Not Found</div>} />
+
         </Routes>
       </main>
     </div>

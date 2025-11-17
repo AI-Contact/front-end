@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './Login.module.css';
-import { IoMdMail, IoMdLock } from 'react-icons/io';
+import { IoMdPerson, IoMdLock } from 'react-icons/io';
 import { IoSparkles } from 'react-icons/io5';
+import { loginUser } from '../api/authService';
+import { setAccessToken, setRefreshToken } from '../auth/token';
 
 const Login = () => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // TODO: Implement actual login logic
-        console.log('Login attempt:', { email, password });
-        // Navigate to home after successful login
-        navigate('/');
+        loginUser({ username: username, password: password })
+            .then((res) => {
+                setAccessToken(res.access_token);
+                if (res.refresh_token) {
+                    setRefreshToken(res.refresh_token);
+                }
+                navigate('/home');
+            })
+            .catch((error: { message?: string }) => {
+                alert(error?.message || '로그인에 실패했습니다.');
+            });
     };
 
     return (
@@ -30,18 +39,18 @@ const Login = () => {
 
                 <form className={styles.loginForm} onSubmit={handleSubmit}>
                     <div className={styles.inputGroup}>
-                        <label htmlFor="email" className={styles.label}>
-                            이메일
+                        <label htmlFor="username" className={styles.label}>
+                            아이디
                         </label>
                         <div className={styles.inputWrapper}>
-                            <IoMdMail className={styles.inputIcon} />
+                            <IoMdPerson className={styles.inputIcon} />
                             <input
-                                id="email"
-                                type="email"
+                                id="username"
+                                type="username"
                                 className={styles.input}
-                                placeholder="이메일을 입력하세요"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="아이디를 입력하세요"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
                                 required
                             />
                         </div>

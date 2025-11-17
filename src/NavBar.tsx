@@ -1,13 +1,22 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import styles from "./NavBar.module.css"
 
 // icons
 import { FaHouse, FaBolt, FaChartColumn, FaDumbbell } from "react-icons/fa6";
 import { FaCog } from "react-icons/fa";
 import { IoLogOut } from "react-icons/io5";
+import { clearTokens } from "./auth/token";
+import { logoutUser } from "./api/authService";
 
 const NavBar = ({ collapsed }: { collapsed: boolean }) => {
     const location = useLocation();
+    const navigate = useNavigate();
+
+    function logout() {
+        logoutUser();
+        clearTokens();
+        navigate("/");
+    }
 
     return (
         <div className={`${styles.navbar} ${collapsed ? styles.collapsed : ''}`}>
@@ -15,7 +24,7 @@ const NavBar = ({ collapsed }: { collapsed: boolean }) => {
             {/* 메인 메뉴 섹션 */}
             <div className={styles.mainMenu}>
                 <Link
-                    to="/"
+                    to="/home"
                     className={`${styles.navitem} ${location.pathname === '/' ? styles.active : ''}`}
                 >
                     <FaHouse />
@@ -53,7 +62,7 @@ const NavBar = ({ collapsed }: { collapsed: boolean }) => {
                     <FaCog />
                     {!collapsed && <span>설정</span>}
                 </Link>
-                <button className={styles.navitem}>
+                <button className={styles.navitem} onClick={logout}>
                     <IoLogOut />
                     {!collapsed && <span>로그아웃</span>}
                 </button>
