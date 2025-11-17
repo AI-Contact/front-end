@@ -6,7 +6,7 @@ import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { getChallengeVideos, getRankings, submitGameScore } from '../api/gameService';
 
 interface VideoItem {
-    id: number; // backend video id
+    id: number;
     youtubeId: string;
     title: string;
     thumbnailUrl: string;
@@ -15,7 +15,6 @@ interface VideoItem {
 interface GameResults {
     totalScore: number;
     perfectHits: number;
-    greatHits: number;
     goodHits: number;
     missHits: number;
     accuracy: number;
@@ -63,8 +62,10 @@ const Game = () => {
     const [showHit, setShowHit] = useState(false);
     const [hitType, setHitType] = useState('');
     const [showResults, setShowResults] = useState(false);
-    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
+    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, MISS: 0 });
     const [gameResults, setGameResults] = useState<GameResults | null>(null);
+    const [isGameRunning, setIsGameRunning] = useState(false);
+    const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
 
     // const handleNoteHit = (accuracy: string) => {
     //     setHitType(accuracy);
@@ -73,9 +74,9 @@ const Game = () => {
     // };
 
     useEffect(() => {
-        if (!isModalOpen) return;
+        if (!isModalOpen || !isGameRunning) return;
 
-        const hitTypes: Array<keyof typeof hitCounts> = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
+        const hitTypes: Array<keyof typeof hitCounts> = ['PERFECT', 'GOOD', 'MISS'];
 
         const interval = setInterval(() => {
             const randomType = hitTypes[Math.floor(Math.random() * hitTypes.length)];
@@ -92,7 +93,7 @@ const Game = () => {
         }, 2000); // Trigger every 2 seconds
 
         return () => clearInterval(interval);
-    }, [isModalOpen]);
+    }, [isModalOpen, isGameRunning]);
 
     useEffect(() => {
         setLoadingVideos(true);
@@ -126,21 +127,44 @@ const Game = () => {
     const handleVideoClick = (video: VideoItem) => {
         setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
         setShowResults(false);
-        setHitCounts({ PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 });
+        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setIsGameRunning(false);
         setIsModalOpen(true);
+    };
+
+    const handleStartGame = () => {
+        console.log("START!");
+        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setIsGameRunning(true);
+
+        // Play the YouTube video
+        if (iframeRef && iframeRef.contentWindow) {
+            iframeRef.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        }
+    };
+
+    const handleStopGame = () => {
+        console.log("sTOP!");
+        setIsGameRunning(false);
+
+        // Pause the YouTube video
+        if (iframeRef && iframeRef.contentWindow) {
+            iframeRef.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        }
     };
 
     const handleGameComplete = async () => {
         if (!selectedVideo) return;
 
-        const totalHits = hitCounts.PERFECT + hitCounts.GREAT + hitCounts.GOOD + hitCounts.MISS;
-        const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GREAT * 70) + (hitCounts.GOOD * 40);
+        setIsGameRunning(false);
+
+        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.MISS;
+        const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GOOD * 40);
         const accuracy = totalHits > 0 ? ((totalHits - hitCounts.MISS) / totalHits) * 100 : 0;
 
         const results: GameResults = {
             totalScore,
             perfectHits: hitCounts.PERFECT,
-            greatHits: hitCounts.GREAT,
             goodHits: hitCounts.GOOD,
             missHits: hitCounts.MISS,
             accuracy: Math.round(accuracy * 10) / 10
@@ -150,12 +174,12 @@ const Game = () => {
         setShowResults(true);
 
         try {
-            // await submitGameScore({
-            //     video_id: selectedVideo.id,
-            //     total_score: totalScore,
-            //     accuracy_score: accuracy,
-            //     timing_score: null,
-            // });
+            await submitGameScore({
+                video_id: selectedVideo.id,
+                total_score: totalScore,
+                accuracy_score: accuracy,
+                timing_score: null,
+            });
 
             setLoadingRankings(true);
             const rows = await getRankings(selectedVideo.id);
@@ -229,21 +253,70 @@ const Game = () => {
                                         </div>
                                     </div>
                                     <div className={styles.videoContainer}>
+                                        {/* Clickable overlay that starts the game */}
+                                        {!isGameRunning && (
+                                            <div
+                                                className={styles.startOverlay}
+                                                onClick={handleStartGame}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    bottom: 0,
+                                                    zIndex: 10,
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                                                }}
+                                            >
+                                                <div style={{
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                    padding: '20px 40px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '24px',
+                                                    fontWeight: 'bold',
+                                                    color: '#333'
+                                                }}>
+                                                    클릭하여 게임 시작
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {isGameRunning && (
+                                            <div
+                                                onClick={handleStopGame}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    bottom: 0,
+                                                    zIndex: 9, // Higher than the iframe
+                                                    cursor: 'pointer',
+                                                    backgroundColor: 'transparent', // Completely transparent
+                                                }}
+                                                title="게임 멈추기"
+                                            />
+                                        )}
+
                                         {/* The new element for showing the hit status */}
                                         <div className={styles.hitStatusOverlay}>
                                             <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
-                                                hitType === 'GREAT' ? styles.hitTextGreat :
-                                                    hitType === 'GOOD' ? styles.hitTextGood :
-                                                        hitType === 'MISS' ? styles.hitTextMiss : ''
+                                                hitType === 'GOOD' ? styles.hitTextGood :
+                                                    hitType === 'MISS' ? styles.hitTextMiss : ''
                                                 }`}>
                                                 {hitType}
                                             </p>
                                         </div>
 
                                         <iframe
+                                            ref={(ref) => setIframeRef(ref)}
                                             width="100%"
                                             height="520"
-                                            src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}`}
+                                            src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}?enablejsapi=1`}
                                             title="YouTube video player"
                                             frameBorder="0"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -274,14 +347,10 @@ const Game = () => {
                                         </div>
                                     </div>
 
-                                    <div className={styles.hitDetailGrid}>
+                                    <div className={styles.hitDetailList}>
                                         <div className={`${styles.hitDetailCard} ${styles.perfectCard}`}>
                                             <div className={styles.hitDetailLabel}>PERFECT</div>
                                             <div className={styles.hitDetailValue}>{gameResults?.perfectHits}</div>
-                                        </div>
-                                        <div className={`${styles.hitDetailCard} ${styles.greatCard}`}>
-                                            <div className={styles.hitDetailLabel}>GREAT</div>
-                                            <div className={styles.hitDetailValue}>{gameResults?.greatHits}</div>
                                         </div>
                                         <div className={`${styles.hitDetailCard} ${styles.goodCard}`}>
                                             <div className={styles.hitDetailLabel}>GOOD</div>
