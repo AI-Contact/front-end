@@ -74,6 +74,14 @@
     border: 2px dashed #dee2e6;
 }
 
+.videoStream {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+    object-fit: cover;
+}
+
 .label {
     font-weight: 600;
     font-size: 13px;
@@ -106,6 +114,39 @@
     width: 160px;
     min-width: 160px;
     max-width: 160px;
+}
+
+.exerciseDisplay {
+    padding: 10px 14px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #212529;
+    background-color: #f8f9fa;
+    height: 42px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    min-width: 160px;
+}
+
+.fileInput {
+    padding: 8px 14px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+    height: 42px;
+    box-sizing: border-box;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.fileInput:focus {
+    outline: none;
+    border-color: #5724ff;
 }
 
 .select:focus,
