@@ -327,6 +327,26 @@ const Workout = () => {
                                         <IoCheckmarkCircle className={styles.badgeIcon} />
                                         <span>{exercise.averageScore > 0 ? `${exercise.averageScore}점` : '수행 전'}</span>
                                     </div>
+                                    {/* Total Time Badge */}
+                                    <div className={`${styles.cardBadge} ${styles.completed}`}>
+                                        <IoCheckmarkCircle className={styles.badgeIcon} />
+                                        <span>
+                                            {(() => {
+                                                const totalSeconds = exercise.totalTimeSeconds;
+                                                const hours = Math.floor(totalSeconds / 3600);
+                                                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                                                const seconds = totalSeconds % 60;
+
+                                                if (hours > 0) {
+                                                    return `${hours}시간 ${minutes}분 ${seconds}초`;
+                                                } else if (minutes > 0) {
+                                                    return `${minutes}분 ${seconds}초`;
+                                                } else {
+                                                    return `${seconds}초`;
+                                                }
+                                            })()}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -47,6 +47,7 @@ const ExerciseSession = () => {
                 console.log('Duration (분):', completeResponse.duration);
                 console.log('전체 응답 데이터:', completeResponse);
 
+
                 // 계산된 운동 시간을 함께 전달
                 navigate('/workout', {
                     replace: false,
@@ -58,12 +59,13 @@ const ExerciseSession = () => {
                     }
                 });
                 return;
+
             } catch (err) {
                 console.error('운동 완료 기록 실패:', err);
             }
         }
 
-        // API 호출 실패 또는 recordData가 없을 경우
+
         navigate('/workout', { replace: false });
     };
 

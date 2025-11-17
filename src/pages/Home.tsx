@@ -25,6 +25,7 @@ const Home = () => {
     useEffect(() => {
         const fetchProgressData = async () => {
             try {
+
                 // 운동 완료 후 전달된 데이터 확인
                 const completedExercise = (location.state as { completedExercise?: { exerciseId: number; durationInSeconds: number } })?.completedExercise;
                 if (completedExercise) {
@@ -33,10 +34,12 @@ const Home = () => {
                     console.log('Duration (초):', completedExercise.durationInSeconds);
                 }
 
+
                 // 운동 목록 가져오기
                 const exercises = await getExercises({ limit: 5 });
 
                 // 내 운동 기록 가져오기
+
                 let myRecords: Array<{
                     exercise_id: number;
                     duration?: number;
@@ -47,6 +50,7 @@ const Home = () => {
                 try {
                     myRecords = await getMyRecords({ limit: 100 });
                     console.log('Home - 내 운동 기록:', myRecords);
+
                 } catch (recordErr) {
                     console.log('운동 기록 조회 실패:', recordErr);
                 }
@@ -58,6 +62,7 @@ const Home = () => {
                     acc[exerciseId] = (acc[exerciseId] || 0) + durationInSeconds;
                     return acc;
                 }, {});
+
 
                 // 각 운동별 평균 점수 계산
                 const averageScoreMap: Record<number, number> = {};
@@ -101,6 +106,7 @@ const Home = () => {
                     console.log('=== Home - 업데이트된 운동 시간 ===');
                     console.log(`Exercise ${completedExercise.exerciseId}: ${recordTimeMap[completedExercise.exerciseId]}초`);
                 }
+
 
                 // 모든 운동의 시간을 먼저 계산
                 const exerciseTimes = exercises.map((exercise: { id: number; name: string }) => {

@@ -1,3 +1,7 @@
+body {
+  margin: 0;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -15,7 +19,7 @@
   z-index: 10;
   background-color: #fff;
   border-bottom: 1px solid #e0e0e0;
-  padding: 0 30px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -106,14 +110,21 @@
 
 /* 메인 콘텐츠 */
 .main-content {
-  margin-left: 240px;
+  margin-left: 270px;
   margin-top: 80px;
   padding: 30px;
   flex-grow: 1;
   transition: margin-left 0.3s ease;
   min-height: calc(100vh - 80px);
+  justify-content: center;
 }
 
 .main-content.expanded {
-  margin-left: 60px;
+  margin-left: 70px;
+}
+
+.login-main {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
 }
