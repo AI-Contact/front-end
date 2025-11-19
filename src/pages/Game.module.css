@@ -242,15 +242,16 @@
     color: #10b981;
 }
 
+/* 
 .hitTextGreat {
     color: #3b82f6;
-}
+} */
 
 .hitTextGood {
     color: #f59e0b;
 }
 
-.hitTextMiss {
+.hitTextBad {
     color: #ef4444;
 }
 
@@ -343,7 +344,7 @@
 }
 
 /* GREAT */
-.greatCard {
+/* .greatCard {
     background-color: #eff6ff;
     border: 2px solid #3b82f6;
 }
@@ -354,7 +355,7 @@
 
 .greatCard .hitDetailValue {
     color: #3b82f6;
-}
+} */
 
 /* GOOD */
 .goodCard {
@@ -371,16 +372,16 @@
 }
 
 /* MISS */
-.missCard {
+.badCard {
     background-color: #fef2f2;
     border: 2px solid #ef4444;
 }
 
-.missCard .hitDetailLabel {
+.badCard .hitDetailLabel {
     color: #dc2626;
 }
 
-.missCard .hitDetailValue {
+.badCard .hitDetailValue {
     color: #ef4444;
 }
 

@@ -19,8 +19,9 @@ interface GameResults {
     totalScore: number;
     perfectHits: number;
     goodHits: number;
-    missHits: number;
+    badHits: number;
     accuracy: number;
+    grade: string;
 }
 
 const Game = () => {
@@ -65,11 +66,12 @@ const Game = () => {
     const [showHit, setShowHit] = useState(false);
     const [hitType, setHitType] = useState('');
     const [showResults, setShowResults] = useState(false);
-    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, MISS: 0 });
+    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, BAD: 0 });
     const [gameResults, setGameResults] = useState<GameResults | null>(null);
     const [isGameRunning, setIsGameRunning] = useState(false);
     const [isWarmingUp, setIsWarmingUp] = useState(false);
     const [countdown, setCountdown] = useState(5);
+    const [serverGrade, setServerGrade] = useState<string>('');
     const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -170,7 +172,8 @@ const Game = () => {
     const handleVideoClick = async (video: VideoItem) => {
         setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
         setShowResults(false);
-        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setServerGrade('');
         setIsGameRunning(false);
         setIsWarmingUp(false);
         setIsModalOpen(true);
@@ -180,7 +183,8 @@ const Game = () => {
 
     const handleStartGame = async () => {
         console.log("START!");
-        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setServerGrade('');
         setIsGameRunning(true);
         setIsWarmingUp(true);
         setCountdown(5);
@@ -222,7 +226,7 @@ const Game = () => {
                     // Update score/grade based on result
                     // Assuming result contains score or grade
                     if (result && result.current_grade) {
-                        const grade = result.current_grade as 'PERFECT' | 'GOOD' | 'MISS';
+                        const grade = result.current_grade as 'PERFECT' | 'GOOD' | 'BAD';
 
                         setHitType(grade);
                         setShowHit(true);
@@ -237,11 +241,18 @@ const Game = () => {
                 else if (data.type === 'error') {
                     console.error("Game Error:", data.message);
                 } else if (data.type === 'stopped') {
+                    const res = data.result;
                     console.log("Game Stopped:", data.result);
+
                     const ws = wsRef.current;
                     if (ws) {
                         ws.close();
                         wsRef.current = null;
+                    }
+
+                    setHitCounts(res.grade_counts);
+                    if (res.grade) {
+                        setServerGrade(res.grade);
                     }
                 }
             } catch (e) {
@@ -289,22 +300,25 @@ const Game = () => {
 
     const handleGameComplete = async () => {
         if (!selectedVideo) return;
-
         setIsGameRunning(false);
 
+        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.BAD;
+        // if there isn't anything to submit, just show the default 0 result and return
+        if (totalHits === 0) {
+            setShowResults(true);
+            return;
+        }
 
-        // Camera continues running
-
-        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.MISS;
         const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GOOD * 40);
-        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.MISS) / totalHits) * 100 : 0;
+        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.BAD) / totalHits) * 100 : 0;
 
         const results: GameResults = {
             totalScore,
             perfectHits: hitCounts.PERFECT,
             goodHits: hitCounts.GOOD,
-            missHits: hitCounts.MISS,
-            accuracy: Math.round(accuracy * 10) / 10
+            badHits: hitCounts.BAD,
+            accuracy: Math.round(accuracy * 10) / 10,
+            grade: serverGrade || 'F' // Default to F if no grade received
         };
 
         setGameResults(results);
@@ -449,7 +463,7 @@ const Game = () => {
                                         <div className={styles.hitStatusOverlay}>
                                             <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
                                                 hitType === 'GOOD' ? styles.hitTextGood :
-                                                    hitType === 'MISS' ? styles.hitTextMiss : ''
+                                                    hitType === 'BAD' ? styles.hitTextBad : ''
                                                 }`}>
                                                 {hitType}
                                             </p>
@@ -496,6 +510,9 @@ const Game = () => {
                                         <div className={styles.totalScoreValue}>
                                             {gameResults?.totalScore}
                                         </div>
+                                        <div className={styles.gradeLabel} style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginTop: '10px' }}>
+                                            Grade: {gameResults?.grade}
+                                        </div>
                                         <div className={styles.accuracyLabel}>
                                             평균 정확도: {gameResults?.accuracy}%
                                         </div>
@@ -510,9 +527,9 @@ const Game = () => {
                                             <div className={styles.hitDetailLabel}>GOOD</div>
                                             <div className={styles.hitDetailValue}>{gameResults?.goodHits}</div>
                                         </div>
-                                        <div className={`${styles.hitDetailCard} ${styles.missCard}`}>
-                                            <div className={styles.hitDetailLabel}>MISS</div>
-                                            <div className={styles.hitDetailValue}>{gameResults?.missHits}</div>
+                                        <div className={`${styles.hitDetailCard} ${styles.badCard}`}>
+                                            <div className={styles.hitDetailLabel}>BAD</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.badHits}</div>
                                         </div>
                                     </div>
                                 </>
