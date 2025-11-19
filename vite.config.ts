@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://34.61.174.62',
+        target: 'http://localhost',
         changeOrigin: true,
         ws: true, // WebSocket 지원 활성화
       }

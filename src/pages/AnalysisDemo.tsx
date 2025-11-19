@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import styles from "./AnalysisDemo.module.css";
 
 // 웹소켓 URL (백엔드 서버로 직접 연결)
-const WS_URL = "ws://34.61.174.62/api/exercises/pose-analysis/ws";
+const WS_URL = "ws://localhost/api/exercises/pose-analysis/ws";
 
 // 운동 이름 매핑 (백엔드 한글 이름 -> AI 서버 영문 이름)
 const EXERCISE_NAME_MAP: Record<string, string> = {
