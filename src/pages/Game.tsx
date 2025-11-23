@@ -22,6 +22,7 @@ interface GameResults {
     badHits: number;
     accuracy: number;
     grade: string;
+    maxCombo: number;
 }
 
 const Game = () => {
@@ -73,6 +74,8 @@ const Game = () => {
     const [countdown, setCountdown] = useState(5);
     const [serverGrade, setServerGrade] = useState<string>('');
     const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
+    const [currentCombo, setCurrentCombo] = useState(0);
+    const [maxCombo, setMaxCombo] = useState(0);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -176,6 +179,8 @@ const Game = () => {
         setServerGrade('');
         setIsGameRunning(false);
         setIsWarmingUp(false);
+        setCurrentCombo(0);
+        setMaxCombo(0);
         setIsModalOpen(true);
         // Start camera when modal opens
         await startCamera();
@@ -185,6 +190,8 @@ const Game = () => {
         console.log("START!");
         setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
         setServerGrade('');
+        setCurrentCombo(0);
+        setMaxCombo(0);
         setIsGameRunning(true);
         setIsWarmingUp(true);
         setCountdown(5);
@@ -232,6 +239,17 @@ const Game = () => {
                         setHitType(grade);
                         setShowHit(true);
                         setTimeout(() => setShowHit(false), 500);
+
+                        // Update combo
+                        if (grade === 'PERFECT' || grade === 'GOOD') {
+                            setCurrentCombo(prev => {
+                                const newCombo = prev + 1;
+                                setMaxCombo(current => Math.max(current, newCombo));
+                                return newCombo;
+                            });
+                        } else if (grade === 'BAD') {
+                            setCurrentCombo(0);
+                        }
                     } else if (result && result.score !== undefined) {
                         // Fallback if only score is provided
                         // This logic might need adjustment based on actual server response
@@ -318,7 +336,8 @@ const Game = () => {
             goodHits: hitCounts.GOOD,
             badHits: hitCounts.BAD,
             accuracy: Math.round(accuracy * 10) / 10,
-            grade: serverGrade || 'F' // Default to F if no grade received
+            grade: serverGrade || 'F', // Default to F if no grade received
+            maxCombo: maxCombo
         };
 
         setGameResults(results);
@@ -469,6 +488,15 @@ const Game = () => {
                                             </p>
                                         </div>
 
+                                        {/* Combo Display */}
+                                        {isGameRunning && currentCombo > 0 && (
+                                            <div className={styles.comboOverlay}>
+                                                <div className={styles.comboText}>
+                                                    {currentCombo} COMBO!
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Countdown Overlay */}
                                         {isWarmingUp && (
                                             <div className={styles.countdownOverlay}>
@@ -515,6 +543,9 @@ const Game = () => {
                                         </div>
                                         <div className={styles.accuracyLabel}>
                                             평균 정확도: {gameResults?.accuracy}%
+                                        </div>
+                                        <div className={styles.comboLabel} style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b', marginTop: '10px' }}>
+                                            최대 콤보: {gameResults?.maxCombo}
                                         </div>
                                     </div>
 

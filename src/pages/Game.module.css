@@ -468,3 +468,41 @@
     display: block;
     transform: scaleX(-1);
 }
+
+/* Combo Overlay */
+.comboOverlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 15;
+    pointer-events: none;
+}
+
+.comboText {
+    font-size: 32px;
+    font-weight: 800;
+    /* vibrant gradient fill for the text */
+    background: linear-gradient(90deg, #f59e0b 0%, #f97316 45%, #ef4444 75%, #db2777 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* subtle multi-layer glow to enhance the gradient */
+    text-shadow: 0 6px 18px rgba(219, 39, 119, 0.08), 0 2px 6px rgba(0, 0, 0, 0.55);
+    /* extra glow using drop-shadow for supporting browsers */
+    filter: drop-shadow(0 6px 14px rgba(244, 114, 54, 0.12));
+    animation: comboPulse 0.3s ease-in-out;
+}
+
+@keyframes comboPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
