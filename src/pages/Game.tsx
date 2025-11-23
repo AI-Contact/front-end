@@ -206,6 +206,7 @@ const Game = () => {
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                console.log("WS Message:", data.type);
 
                 if (data.type === 'init_success') {
                     console.log("Game Initialized:", data.message);
@@ -235,8 +236,6 @@ const Game = () => {
                         // Fallback if only score is provided
                         // This logic might need adjustment based on actual server response
                     }
-                } else if (data.type === 'warmup_end') {
-
                 }
                 else if (data.type === 'error') {
                     console.error("Game Error:", data.message);
@@ -274,6 +273,7 @@ const Game = () => {
     const handleStopGame = () => {
         setIsGameRunning(false);
         setIsWarmingUp(false);
+        setShowHit(false);
 
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) {
