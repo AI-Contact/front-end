@@ -80,6 +80,10 @@ const Workout = () => {
                     //     totalTimeText = `${seconds}초`;
                     // }
 
+                    // localStorage에서 평균 점수 가져오기
+                    const savedScore = localStorage.getItem(`exercise_${exercise.id}_score`);
+                    const averageScore = savedScore ? parseFloat(savedScore) : 0;
+
                     return {
                         id: exercise.id,
                         title: exercise.name,
@@ -94,7 +98,7 @@ const Workout = () => {
                         videoId: 'hAGfBjvIRFI', // 임시 비디오 ID
                         totalTimeSeconds: totalSeconds, // 총 운동 시간 (초)
                         // totalTimeText: totalTimeText, // 포맷된 시간 텍스트
-                        averageScore: 0, // TODO: MediaPipe에서 추출한 평균 점수 (100점 만점)
+                        averageScore: averageScore, // localStorage에서 가져온 평균 점수 (100점 만점)
                     };
                 });
 
@@ -311,10 +315,10 @@ const Workout = () => {
                                     {/* Average Score Badge */}
                                     <div className={`${styles.cardBadge} ${styles.completed}`}>
                                         <IoCheckmarkCircle className={styles.badgeIcon} />
-                                        <span>{exercise.averageScore > 0 ? `${exercise.averageScore}점` : '수행 전'}</span>
+                                        <span>{exercise.averageScore > 0 ? `${exercise.averageScore.toFixed(2)}점` : '수행 전'}</span>
                                     </div>
                                     {/* Total Time Badge */}
-                                    <div className={`${styles.cardBadge} ${styles.completed}`}>
+                                    {/* <div className={`${styles.cardBadge} ${styles.completed}`}>
                                         <IoCheckmarkCircle className={styles.badgeIcon} />
                                         <span>
                                             {(() => {
@@ -332,7 +336,7 @@ const Workout = () => {
                                                 }
                                             })()}
                                         </span>
-                                    </div>
+                                    </div> */}
                                 </div>
                             </div>
                         </div>

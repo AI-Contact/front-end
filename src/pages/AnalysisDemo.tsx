@@ -3,37 +3,57 @@ import { useLocation } from "react-router-dom";
 import styles from "./AnalysisDemo.module.css";
 
 // 웹소켓 URL (백엔드 서버로 직접 연결)
-const WS_URL = "ws://34.61.174.62/api/exercises/pose-analysis/ws";
+const WS_URL = "ws://localhost/api/exercises/pose-analysis/ws";
 
 // 운동 이름 매핑 (백엔드 한글 이름 -> AI 서버 영문 이름)
 const EXERCISE_NAME_MAP: Record<string, string> = {
-  "팔굽혀펴기": "push_up",
-  "푸시업": "push_up",
-  "스쿼트": "squat",
-  "플랭크": "plank",
-  "런지": "lunge",
-  "크런치": "crunch",
+  푸쉬업: "push_up",
+  플랭크: "plank",
+  크런치: "crunch",
   "크로스 런지": "cross_lunge",
-  "레그 레이즈": "leg_raise",
+  레그레이즈: "leg_raise",
 };
 
 interface AIAnalysisStatus {
   is_running: boolean;
   is_warmup?: boolean;
   warmup_remaining?: number;
+  message?: string;
   counters?: Record<string, number>;
+  rep_count?: number;
+  rep_scores?: Record<string, number>;
   elapsed_seconds?: number;
   total_score?: number;
   feedback_ko?: string;
+  state?: string;
+}
+
+// 회차별 저장된 프레임 정보
+interface RepFrame {
+  frameData: string; // Base64 이미지
+  feedback: string[]; // 피드백 메시지들
+  state: string; // 운동 상태 (up/down/hold)
+}
+
+// 회차별 데이터
+interface RepData {
+  repNumber: number; // 회차 번호
+  frames: RepFrame[]; // 해당 회차의 모든 프레임
+  score?: number; // 점수 (0-1)
+  finalFeedback?: string[]; // 최종 피드백
 }
 
 const AnalysisDemo = () => {
   const location = useLocation();
   const { mode, exercise: exerciseData } =
-    (location.state as { mode?: string; exercise?: { title: string } }) || {};
+    (location.state as {
+      mode?: string;
+      exercise?: { title: string; id: number };
+    }) || {};
 
-  const exercise = exerciseData?.title || "팔굽혀펴기";
-  const [targetCount, setTargetCount] = useState(3);
+  const exercise = exerciseData?.title || "";
+  const [targetCount, setTargetCount] = useState<number | "">("");
+  const [targetTime, setTargetTime] = useState<number | "">("");
   const [isRunning, setIsRunning] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
@@ -47,6 +67,21 @@ const AnalysisDemo = () => {
 
   // 비디오 프레임 (Base64)
   const [videoFrame, setVideoFrame] = useState<string>("");
+
+  // 회차별 모든 프레임 저장
+  const [repDataList, setRepDataList] = useState<RepData[]>([]);
+
+  // 현재 진행 중인 회차 추적
+  const currentRepRef = useRef<number>(0);
+
+  // 워밍업 상태 추적 (첫 번째 회차 처리용)
+  const wasWarmupRef = useRef<boolean>(true);
+
+  // 결과 모달 표시 여부
+  const [showResultModal, setShowResultModal] = useState(false);
+
+  // 각 회차의 현재 프레임 인덱스 추적 (애니메이션용)
+  const [currentFrameIndices, setCurrentFrameIndices] = useState<Record<number, number>>({});
 
   // WebSocket 관련 refs
   const websocketRef = useRef<WebSocket | null>(null);
@@ -71,27 +106,36 @@ const AnalysisDemo = () => {
   // 운동 시작 핸들러
   const handleStart = async () => {
     try {
-      const exerciseNameEn = EXERCISE_NAME_MAP[exercise] || "push_up";
+      // 회차별 데이터 초기화
+      setRepDataList([]);
+      currentRepRef.current = 0;
+      wasWarmupRef.current = true; // 워밍업 상태 초기화
+
+      const isPlank = exercise === "플랭크";
+
+      const exerciseNameEn = EXERCISE_NAME_MAP[exercise];
       console.log("운동 이름 매핑:", exercise, "→", exerciseNameEn);
 
+      if (!exerciseNameEn) {
+        alert("운동 종류를 선택해주세요.");
+        return;
+      }
+
       if (isUploadMode) {
-        // 업로드 모드: 파일을 읽어서 비디오로 처리
         if (!uploadedFile) {
           alert("영상 파일을 선택해주세요.");
           return;
         }
 
-        // 비디오 요소 생성 및 파일 로드
         const video = document.createElement("video");
         const videoURL = URL.createObjectURL(uploadedFile);
         video.src = videoURL;
         video.playsInline = true;
         video.muted = true;
 
-        // 비디오 종료 시 자동 중지
         video.onended = () => {
           console.log("비디오 재생 완료");
-          handleStop();
+          handleStop(true);
         };
 
         await new Promise<void>((resolve, reject) => {
@@ -106,9 +150,7 @@ const AnalysisDemo = () => {
         canvas.height = 360;
         canvasElementRef.current = canvas;
 
-        // 비디오 재생은 WebSocket 초기화 후에 시작 (init_success에서)
       } else {
-        // 웹캠 모드: 웹캠 접근 (해상도 낮춤 for 속도 개선)
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 480 },
@@ -120,7 +162,6 @@ const AnalysisDemo = () => {
 
         localStreamRef.current = stream;
 
-        // 비디오 및 캔버스 요소 생성
         const video = document.createElement("video");
         video.srcObject = stream;
         video.autoplay = true;
@@ -142,12 +183,21 @@ const AnalysisDemo = () => {
       ws.onopen = () => {
         console.log("WebSocket 연결됨");
 
-        // 초기화 메시지 전송 (HTML 데모와 동일한 형식)
         const initMessage = {
           exercise: exerciseNameEn,
-          is_video_mode: isUploadMode, // 업로드 모드 여부 전달
-          target_reps: isUploadMode ? null : targetCount || null,
-          target_time: isUploadMode ? null : null,
+          is_video_mode: isUploadMode,
+          target_reps:
+            isUploadMode || isPlank
+              ? null
+              : typeof targetCount === "number"
+                ? targetCount
+                : null,
+          target_time:
+            isUploadMode || !isPlank
+              ? null
+              : typeof targetTime === "number"
+                ? targetTime
+                : null,
         };
         console.log("WebSocket 초기화:", initMessage);
 
@@ -161,12 +211,10 @@ const AnalysisDemo = () => {
           console.log("초기화 성공:", data.message);
           setIsRunning(true);
 
-          // 업로드 모드면 비디오 재생 시작 (HTML 데모와 동일)
           if (isUploadMode && videoElementRef.current) {
             videoElementRef.current.play();
           }
 
-          // 프레임 전송 시작 (HTML 데모와 동일: 웹캠 20fps, 비디오 30fps)
           const fps = isUploadMode ? 30 : 20;
           sendFrameIntervalRef.current = window.setInterval(
             sendFrame,
@@ -178,38 +226,186 @@ const AnalysisDemo = () => {
 
           // 상태 업데이트
           if (data.status) {
-            setAiStatus(data.status);
+            console.log(
+              "📊 받은 status:",
+              JSON.stringify(data.status, null, 2)
+            );
+
+            const actualRepCount =
+              data.status.rep_scores &&
+                Object.keys(data.status.rep_scores).length > 0
+                ? Math.max(
+                  ...Object.keys(data.status.rep_scores).map((k) =>
+                    parseInt(k)
+                  )
+                )
+                : data.status.rep_count || data.status.counters?.reps || 0;
+
+            // 특별 처리: 워밍업이 끝나고 첫 번째 회차가 시작될 때
+            if (wasWarmupRef.current && data.status.is_warmup === false && actualRepCount === 0) {
+              console.log("🎯 워밍업 종료 - 첫 번째 회차 준비");
+              wasWarmupRef.current = false;
+              currentRepRef.current = 0; // 0으로 설정해서 actualRepCount가 1이 되면 새 rep이 생성되도록
+
+              // 첫 번째 회차 데이터 생성
+              setRepDataList([
+                {
+                  repNumber: 1,
+                  frames: [],
+                  score: undefined,
+                  finalFeedback: [],
+                }
+              ]);
+              console.log("🆕 첫 번째 회차 생성 (워밍업 종료 후)");
+            }
+
+            // 회차가 증가하면 새로운 RepData 생성
+            // 첫 번째 rep의 경우: actualRepCount가 1이 되면 rep 2를 준비
+            if (actualRepCount > currentRepRef.current && actualRepCount > 0) {
+              // 이전 회차의 점수 저장 (첫 번째 회차인 경우도 포함)
+              if (data.status.rep_scores) {
+                const currentRepNumber = actualRepCount; // 방금 완료된 회차
+                const currentScore = data.status.rep_scores[currentRepNumber.toString()];
+                if (currentScore !== undefined) {
+                  setRepDataList(prev =>
+                    prev.map(rep =>
+                      rep.repNumber === currentRepNumber
+                        ? { ...rep, score: currentScore }
+                        : rep
+                    )
+                  );
+                }
+              }
+
+              currentRepRef.current = actualRepCount;
+
+              // 다음 회차 데이터 추가 (actualRepCount + 1)
+              const nextRepNumber = actualRepCount + 1;
+              setRepDataList(prev => [
+                ...prev,
+                {
+                  repNumber: nextRepNumber,
+                  frames: [],
+                  score: undefined,
+                  finalFeedback: [],
+                }
+              ]);
+
+              console.log(`🆕 새로운 회차 시작: ${nextRepNumber}회 (${actualRepCount}회 완료)`);
+            }
+
+            // 현재 진행 중인 회차에 프레임 추가 (is_running이 true이고 워밍업이 아닐 때)
+            // actualRepCount가 0이면 rep 1에 저장, 그 외에는 actualRepCount + 1에 저장
+            const effectiveRepNumber = actualRepCount === 0 ? 1 : actualRepCount + 1;
+            if (data.status.is_running && data.status.is_warmup === false && effectiveRepNumber > 0) {
+              const feedbackMessages = data.status.feedback_ko
+                ? data.status.feedback_ko
+                  .split(" | ")
+                  .map((msg: string) => msg.trim())
+                  .filter((msg: string) => msg.length > 0)
+                : [];
+
+              const newFrame: RepFrame = {
+                frameData: data.frame,
+                feedback: feedbackMessages,
+                state: data.status.state || "unknown",
+              };
+
+              setRepDataList(prev =>
+                prev.map(rep =>
+                  rep.repNumber === effectiveRepNumber
+                    ? { ...rep, frames: [...rep.frames, newFrame] }
+                    : rep
+                )
+              );
+              console.log(`➕ 회차 ${effectiveRepNumber}에 프레임 추가 (actualRepCount: ${actualRepCount})`);
+            }
+
+            // 현재 회차의 점수를 실시간으로 업데이트
+            if (effectiveRepNumber > 0 && data.status.rep_scores) {
+              const currentRepScore = data.status.rep_scores[effectiveRepNumber.toString()];
+              if (currentRepScore !== undefined) {
+                setRepDataList(prev =>
+                  prev.map(rep =>
+                    rep.repNumber === effectiveRepNumber
+                      ? { ...rep, score: currentRepScore }
+                      : rep
+                  )
+                );
+              }
+            }
+
+            setAiStatus({
+              ...data.status,
+              rep_count: actualRepCount,
+            });
+
+            console.log(
+              `✅ 실제 운동 횟수: ${actualRepCount} (백엔드 rep_count: ${data.status.rep_count}, effective: ${effectiveRepNumber})`
+            );
+
+            // 목표 횟수 도달 시 자동 중지
+            if (
+              typeof targetCount === "number" &&
+              actualRepCount >= targetCount
+            ) {
+              console.log(`🎉 목표 달성! (${actualRepCount}/${targetCount})`);
+
+              // 마지막 회차의 점수 저장
+              if (data.status.rep_scores && actualRepCount > 0) {
+                const lastRepScore = data.status.rep_scores[actualRepCount.toString()];
+                if (lastRepScore !== undefined) {
+                  setRepDataList(prev =>
+                    prev.map(rep =>
+                      rep.repNumber === actualRepCount
+                        ? { ...rep, score: lastRepScore }
+                        : rep
+                    )
+                  );
+                }
+              }
+
+              // localStorage에 평균 점수 저장
+              if (exerciseData?.id && data.status.total_score) {
+                const averageScore = (data.status.total_score * 100).toFixed(2);
+                localStorage.setItem(
+                  `exercise_${exerciseData.id}_score`,
+                  averageScore
+                );
+                console.log(
+                  `✅ 점수 저장: Exercise ${exerciseData.id} -> ${averageScore}점`
+                );
+              }
+
+              setTimeout(() => {
+                handleStop(true);
+                setShowResultModal(true); // 결과 모달 표시
+              }, 500); // 마지막 프레임이 화면에 표시되도록 약간 지연
+            }
           }
 
           // 처리 완료 플래그 해제
           isProcessingRef.current = false;
         } else if (data.type === "stopped") {
           console.log("운동 중지:", data.result);
-          handleStop();
 
-          // 결과 표시
-          if (data.result.rep_count) {
-            alert(
-              `운동 완료!\n횟수: ${data.result.rep_count
-              }\n평균 점수: ${data.result.total_score.toFixed(2)}`
-            );
-          }
+          handleStop(true);
+          setShowResultModal(true); // 결과 모달 표시
         } else if (data.type === "error") {
           console.error("오류:", data.message);
           alert("오류 발생: " + data.message);
-          handleStop();
+          handleStop(true);
         }
       };
 
       ws.onerror = (error) => {
         console.error("WebSocket 오류:", error);
         alert("WebSocket 연결 오류가 발생했습니다.");
-        handleStop();
+        handleStop(true);
       };
 
       ws.onclose = () => {
         console.log("WebSocket 연결 종료");
-        handleStop();
       };
     } catch (error) {
       console.error("카메라 접근 오류:", error);
@@ -235,7 +431,7 @@ const AnalysisDemo = () => {
     if (isUploadMode) {
       if (video.ended || video.paused) {
         console.log("비디오 종료됨");
-        handleStop();
+        handleStop(true); // 결과 유지
         return;
       }
     }
@@ -273,59 +469,77 @@ const AnalysisDemo = () => {
   };
 
   // 운동 중지 핸들러
-  const handleStop = useCallback(() => {
-    // 프레임 전송 중지
-    if (sendFrameIntervalRef.current) {
-      clearInterval(sendFrameIntervalRef.current);
-      sendFrameIntervalRef.current = null;
-    }
-
-    // 처리 플래그 초기화
-    isProcessingRef.current = false;
-
-    // WebSocket 종료
-    const ws = websocketRef.current;
-    if (ws) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "stop",
-          })
-        );
+  const handleStop = useCallback(
+    (keepResults = false) => {
+      // 프레임 전송 중지
+      if (sendFrameIntervalRef.current) {
+        clearInterval(sendFrameIntervalRef.current);
+        sendFrameIntervalRef.current = null;
       }
-      ws.close();
-      websocketRef.current = null;
-    }
 
-    // 웹캠 중지
-    const stream = localStreamRef.current;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
+      // 처리 플래그 초기화
+      isProcessingRef.current = false;
 
-    // 업로드 비디오 정리
-    const video = videoElementRef.current;
-    if (video && isUploadMode) {
-      video.pause();
-      if (video.src) {
-        URL.revokeObjectURL(video.src);
+      // WebSocket 종료
+      const ws = websocketRef.current;
+      if (ws) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              type: "stop",
+            })
+          );
+        }
+        ws.close();
+        websocketRef.current = null;
       }
-    }
-    videoElementRef.current = null;
 
-    // 비디오 피드 초기화
-    setVideoFrame("");
-    setIsRunning(false);
+      // 웹캠 중지
+      const stream = localStreamRef.current;
+      if (stream) {
+        stream.getTracks().forEach((track) => {
+          track.stop();
+          console.log("카메라 트랙 중지:", track.kind);
+        });
+        localStreamRef.current = null;
+      }
 
-    // 상태 초기화
-    setAiStatus({
-      is_running: false,
-      counters: { reps: 0 },
-      total_score: 0,
-      feedback_ko: "운동을 시작하면 실시간 피드백이 표시됩니다.",
-    });
-  }, [isUploadMode]);
+      // 비디오 요소 정리
+      const video = videoElementRef.current;
+      if (video) {
+        video.pause();
+
+        // 웹캠 모드: srcObject 제거
+        if (video.srcObject) {
+          video.srcObject = null;
+        }
+
+        // 업로드 모드: src 제거
+        if (isUploadMode && video.src) {
+          URL.revokeObjectURL(video.src);
+          video.src = "";
+        }
+      }
+      videoElementRef.current = null;
+
+      // 비디오 피드 초기화 (목표 달성 시에는 마지막 프레임 유지)
+      if (!keepResults) {
+        setVideoFrame("");
+      }
+      setIsRunning(false);
+
+      // 상태 초기화 (목표 달성 시에는 결과 유지)
+      if (!keepResults) {
+        setAiStatus({
+          is_running: false,
+          counters: { reps: 0 },
+          total_score: 0,
+          feedback_ko: "운동을 시작하면 실시간 피드백이 표시됩니다.",
+        });
+      }
+    },
+    [isUploadMode]
+  );
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -333,6 +547,55 @@ const AnalysisDemo = () => {
       handleStop();
     };
   }, [handleStop]);
+
+  // 각 회차의 프레임 애니메이션 (GIF처럼)
+  useEffect(() => {
+    if (!showResultModal || repDataList.length === 0) return;
+
+    // 각 회차의 프레임 인덱스 초기화
+    const initialIndices: Record<number, number> = {};
+    repDataList.forEach(rep => {
+      if (rep.frames.length > 0) {
+        initialIndices[rep.repNumber] = 0;
+      }
+    });
+    setCurrentFrameIndices(initialIndices);
+
+    // 프레임 애니메이션 (30 FPS)
+    const interval = setInterval(() => {
+      setCurrentFrameIndices(prev => {
+        const next: Record<number, number> = {};
+        repDataList.forEach(rep => {
+          if (rep.frames.length > 0) {
+            const currentIndex = prev[rep.repNumber] || 0;
+            next[rep.repNumber] = (currentIndex + 1) % rep.frames.length;
+          }
+        });
+        return next;
+      });
+    }, 1000 / 30); // 30 FPS
+
+    return () => clearInterval(interval);
+  }, [showResultModal, repDataList]);
+
+  const feedbackMessages =
+    aiStatus.feedback_ko
+      ?.split(" | ")
+      .map((msg) => msg.trim())
+      .filter((msg) => msg.length > 0) || [];
+
+  const isPositiveFeedback = (msg: string) => {
+    const positiveKeywords = [
+      "잘하고 있어요",
+      "좋아요",
+      "완벽",
+      "훌륭",
+      "정확",
+      "올바른",
+      "잘",
+    ];
+    return positiveKeywords.some((keyword) => msg.includes(keyword));
+  };
 
   return (
     <div className={styles.container}>
@@ -358,20 +621,59 @@ const AnalysisDemo = () => {
             </div>
           )}
 
-          {/* 웹캠 모드에서만 목표 횟수 표시 (업로드 모드는 목표 불필요) */}
+          {/* 웹캠 모드에서만 목표 설정 표시 */}
           {isWebcamMode && (
-            <div className={styles.settingRow}>
-              <label className={styles.label}>목표 횟수</label>
-              <input
-                type="number"
-                className={styles.numberInput}
-                value={targetCount}
-                onChange={(e) => setTargetCount(parseInt(e.target.value) || 3)}
-                min="1"
-                max="100"
-                disabled={isRunning}
-              />
-            </div>
+            <>
+              {/* 플랭크가 아닐 때: 목표 횟수 */}
+              {exercise !== "플랭크" && (
+                <div className={styles.settingRow}>
+                  <label className={styles.label}>목표 횟수</label>
+                  <input
+                    type="number"
+                    className={styles.numberInput}
+                    value={targetCount}
+                    placeholder="목표 횟수 입력"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "") {
+                        setTargetCount("");
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue) && numValue > 0) {
+                          setTargetCount(numValue);
+                        }
+                      }
+                    }}
+                    min="1"
+                    max="100"
+                    disabled={isRunning}
+                  />
+                </div>
+              )}
+              {/* 플랭크일 때: 목표 시간 */}
+              {exercise === "플랭크" && (
+                <div className={styles.settingRow}>
+                  <label className={styles.label}>목표 시간(초)</label>
+                  <input
+                    type="number"
+                    className={styles.numberInput}
+                    value={targetTime}
+                    placeholder="목표 시간(초) 입력"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "") {
+                        setTargetTime("");
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue) && numValue > 0) {
+                          setTargetTime(numValue);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           <div className={styles.buttonRow}>
@@ -384,10 +686,20 @@ const AnalysisDemo = () => {
             </button>
             <button
               className={styles.stopButton}
-              onClick={handleStop}
+              onClick={() => {
+                handleStop(true);
+                setShowResultModal(true);
+              }}
               disabled={!isRunning}
             >
               ⏹️ 중지
+            </button>
+            <button
+              className={styles.resultButton}
+              onClick={() => setShowResultModal(true)}
+              disabled={repDataList.length === 0}
+            >
+              📊 결과 보기
             </button>
           </div>
         </div>
@@ -416,38 +728,83 @@ const AnalysisDemo = () => {
             {/* 현재 상태 */}
             <div className={styles.infoCard}>
               <h3 className={styles.cardTitle}>📊 현재 상태</h3>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>운동:</span>
-                <span className={styles.infoValue}>{exercise}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>상태:</span>
-                <span className={styles.infoValue}>
-                  {aiStatus.is_running ? "실행 중" : "대기 중"}
-                </span>
-              </div>
-              {aiStatus.is_warmup && (
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>워밍업:</span>
-                  <span className={styles.infoValue}>
-                    {aiStatus.warmup_remaining
-                      ? `${aiStatus.warmup_remaining.toFixed(1)}초`
-                      : "준비 중"}
-                  </span>
+
+              {/* 가로 배치 그리드 */}
+              <div className={styles.statusGrid}>
+                {/* 운동 종류 */}
+                <div className={styles.statusBox}>
+                  <div className={styles.statusBoxIcon}>🏋️</div>
+                  <div className={styles.statusBoxLabel}>운동</div>
+                  <div className={styles.statusBoxValue}>{exercise}</div>
                 </div>
-              )}
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>카운트:</span>
-                <span className={styles.infoValue}>
-                  {aiStatus.counters?.reps || 0} / {targetCount}
-                </span>
+
+                {/* 운동 상태 */}
+                <div className={styles.statusBox}>
+                  <div className={styles.statusBoxIcon}>
+                    {aiStatus.is_running ? "▶️" : "⏸️"}
+                  </div>
+                  <div className={styles.statusBoxLabel}>상태</div>
+                  <div
+                    className={`${styles.statusBoxValue} ${aiStatus.is_running
+                      ? styles.statusRunning
+                      : styles.statusWaiting
+                      }`}
+                  >
+                    {aiStatus.state
+                      ? aiStatus.state
+                      : aiStatus.is_running
+                        ? "실행 중"
+                        : "대기 중"}
+                  </div>
+                </div>
+
+                {/* 카운트 (플랭크가 아닐 때) */}
+                {exercise !== "플랭크" && (
+                  <div className={styles.statusBox}>
+                    <div className={styles.statusBoxIcon}>🔢</div>
+                    <div className={styles.statusBoxLabel}>횟수</div>
+                    <div className={styles.statusBoxValue}>
+                      {aiStatus.rep_count || 0}
+                      {typeof targetCount === "number" && ` / ${targetCount}`}
+                    </div>
+                  </div>
+                )}
+
+                {/* 경과 시간 (플랭크일 때) */}
+                {exercise === "플랭크" &&
+                  aiStatus.elapsed_seconds !== undefined && (
+                    <div className={styles.statusBox}>
+                      <div className={styles.statusBoxIcon}>⏱️</div>
+                      <div className={styles.statusBoxLabel}>경과 시간</div>
+                      <div className={styles.statusBoxValue}>
+                        {aiStatus.elapsed_seconds.toFixed(1)}초
+                        {typeof targetTime === "number" && ` / ${targetTime}초`}
+                      </div>
+                    </div>
+                  )}
+
+                {/* 경과 시간 (플랭크가 아닐 때) */}
+                {aiStatus.elapsed_seconds !== undefined &&
+                  exercise !== "플랭크" && (
+                    <div className={styles.statusBox}>
+                      <div className={styles.statusBoxIcon}>⏱️</div>
+                      <div className={styles.statusBoxLabel}>경과 시간</div>
+                      <div className={styles.statusBoxValue}>
+                        {aiStatus.elapsed_seconds}초
+                      </div>
+                    </div>
+                  )}
               </div>
-              {aiStatus.elapsed_seconds !== undefined && (
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>경과 시간:</span>
-                  <span className={styles.infoValue}>
-                    {aiStatus.elapsed_seconds}초
-                  </span>
+
+              {/* 워밍업 알림 */}
+              {aiStatus.is_warmup && (
+                <div className={styles.warmupAlert}>
+                  <div className={styles.warmupIcon}>⚠️</div>
+                  <div className={styles.warmupContent}>
+                    <div className={styles.warmupMessage}>
+                      {aiStatus.message || "시작 자세를 취해주세요!"}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -455,35 +812,201 @@ const AnalysisDemo = () => {
             {/* 피드백 */}
             <div className={styles.infoCard}>
               <h3 className={styles.cardTitle}>💬 피드백</h3>
-              <div className={styles.feedbackContent}>
-                <p>
-                  {aiStatus.feedback_ko ||
-                    "운동을 시작하면 실시간 피드백이 표시됩니다."}
-                </p>
-              </div>
+              {feedbackMessages.length > 0 ? (
+                <div className={styles.feedbackList}>
+                  {feedbackMessages.map((msg, index) => {
+                    const isPositive = isPositiveFeedback(msg);
+                    return (
+                      <div
+                        key={index}
+                        className={`${styles.feedbackItem} ${isPositive
+                          ? styles.feedbackPositive
+                          : styles.feedbackNegative
+                          }`}
+                      >
+                        <span className={styles.feedbackIcon}>
+                          {isPositive ? "✅" : "⚠️"}
+                        </span>
+                        <span className={styles.feedbackText}>{msg}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={styles.feedbackPlaceholder}>
+                  운동을 시작하면 실시간 피드백이 표시됩니다.
+                </div>
+              )}
             </div>
 
             {/* 점수 */}
             <div className={styles.infoCard}>
               <h3 className={styles.cardTitle}>📈 점수</h3>
-              <div className={styles.infoRow}>
-                <span className={styles.infoLabel}>현재 횟수:</span>
-                <span className={styles.infoValue}>
-                  {aiStatus.counters?.reps || 0}
-                </span>
-              </div>
-              <div className={styles.infoRow}>
+              <div className={`${styles.infoRow} ${styles.infoRowLast}`}>
                 <span className={styles.infoLabel}>평균 점수:</span>
                 <span className={styles.infoValue}>
                   {aiStatus.total_score
-                    ? `${aiStatus.total_score.toFixed(2)}점`
+                    ? `${(aiStatus.total_score * 100).toFixed(2)}점`
                     : "-"}
                 </span>
               </div>
+
+              {/* 각 회차별 점수 */}
+              {aiStatus.rep_scores &&
+                Object.keys(aiStatus.rep_scores).length > 0 && (
+                  <div className={styles.repScoresContainer}>
+                    <div className={styles.repScoresTitle}>회차별 점수</div>
+                    <div className={styles.repScoresList}>
+                      {Object.entries(aiStatus.rep_scores)
+                        .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                        .map(([rep, score]) => {
+                          const scoreValue = score * 100;
+                          const scoreClass =
+                            scoreValue >= 80
+                              ? styles.scoreExcellent
+                              : scoreValue >= 60
+                                ? styles.scoreGood
+                                : styles.scoreNeedsWork;
+                          return (
+                            <div key={rep} className={styles.repScoreItem}>
+                              <div className={styles.repNumber}>
+                                <span className={styles.repBadge}>{rep}회</span>
+                              </div>
+                              <div className={styles.repScoreBar}>
+                                <div
+                                  className={`${styles.repScoreFill} ${scoreClass}`}
+                                  style={{ width: `${scoreValue}%` }}
+                                >
+                                  <span className={styles.repScoreValue}>
+                                    {scoreValue.toFixed(1)}점
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* 결과 모달 */}
+      {showResultModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowResultModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>🎯 운동 결과</h2>
+              <button
+                className={styles.modalCloseButton}
+                onClick={() => setShowResultModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              {/* 요약 정보 */}
+              <div className={styles.resultSummary}>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>운동:</span>
+                  <span className={styles.summaryValue}>{exercise}</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>완료 횟수:</span>
+                  <span className={styles.summaryValue}>{aiStatus.rep_count || 0}회</span>
+                </div>
+                <div className={styles.summaryItem}>
+                  <span className={styles.summaryLabel}>평균 점수:</span>
+                  <span className={styles.summaryValue}>
+                    {aiStatus.total_score ? `${(aiStatus.total_score * 100).toFixed(2)}점` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* 회차별 프레임들 */}
+              {repDataList.length > 0 ? (
+                <div className={styles.repsContainer}>
+                  {repDataList
+                    .filter((repData) => repData.frames.length > 0)
+                    .sort((a, b) => a.repNumber - b.repNumber)
+                    .map((repData) => (
+                      <div key={repData.repNumber} className={styles.repSection}>
+                        <div className={styles.repHeader}>
+                          <h3 className={styles.repTitle}>
+                            {repData.repNumber}회차
+                          </h3>
+                          {repData.score !== undefined && (
+                            <span className={`${styles.repScore} ${repData.score >= 0.8 ? styles.scoreExcellent :
+                              repData.score >= 0.6 ? styles.scoreGood :
+                                styles.scoreNeedsWork
+                              }`}>
+                              {(repData.score * 100).toFixed(1)}점
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 애니메이션으로 프레임 재생 (GIF처럼) */}
+                        {repData.frames.length > 0 && (
+                          <div className={styles.repAnimationContainer}>
+                            {(() => {
+                              const currentIndex = currentFrameIndices[repData.repNumber] || 0;
+                              const currentFrame = repData.frames[currentIndex];
+
+                              return (
+                                <>
+                                  <div className={styles.animationWrapper}>
+                                    <img
+                                      src={currentFrame.frameData}
+                                      alt={`Rep ${repData.repNumber} Animation`}
+                                      className={styles.animatedFrameImage}
+                                    />
+                                    <div className={styles.animationOverlay}>
+                                      <div className={styles.frameCounter}>
+                                        Frame {currentIndex + 1} / {repData.frames.length}
+                                      </div>
+                                      <div className={styles.frameStateInfo}>
+                                        <span className={styles.stateIndicator}>{currentFrame.state}</span>                                      </div>
+                                    </div>
+                                  </div>
+                                  {currentFrame.feedback.length > 0 && (
+                                    <div className={styles.animatedFrameFeedback}>
+                                      <div className={styles.feedbackTitle}>피드백:</div>
+                                      {currentFrame.feedback.map((msg, msgIndex) => (
+                                        <div key={msgIndex} className={styles.animatedFeedbackLine}>
+                                          {msg}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className={styles.noNegativeFeedback}>
+                  <p>ℹ️ 기록된 프레임이 없습니다.</p>
+                </div>
+              )}
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                className={styles.modalConfirmButton}
+                onClick={() => setShowResultModal(false)}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,6 +4,9 @@ import styles from './Game.module.css'
 import { useEffect, useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { getChallengeVideos, getRankings, submitGameScore } from '../api/gameService';
+import { useRef } from 'react';
+
+const WS_URL = "ws://localhost/api/games/ai-game/ws";
 
 interface VideoItem {
     id: number;
@@ -16,8 +19,10 @@ interface GameResults {
     totalScore: number;
     perfectHits: number;
     goodHits: number;
-    missHits: number;
+    badHits: number;
     accuracy: number;
+    grade: string;
+    maxCombo: number;
 }
 
 const Game = () => {
@@ -62,10 +67,60 @@ const Game = () => {
     const [showHit, setShowHit] = useState(false);
     const [hitType, setHitType] = useState('');
     const [showResults, setShowResults] = useState(false);
-    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, MISS: 0 });
+    const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, BAD: 0 });
     const [gameResults, setGameResults] = useState<GameResults | null>(null);
     const [isGameRunning, setIsGameRunning] = useState(false);
+    const [isWarmingUp, setIsWarmingUp] = useState(false);
+    const [countdown, setCountdown] = useState(5);
+    const [serverGrade, setServerGrade] = useState<string>('');
     const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
+    const [currentCombo, setCurrentCombo] = useState(0);
+    const [maxCombo, setMaxCombo] = useState(0);
+
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const startCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                await videoRef.current.play();
+            }
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+            alert("카메라 접근 권한이 필요합니다.");
+        }
+    };
+
+    const stopCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+    };
+
+    const sendFrame = () => {
+        if (!canvasRef.current || !videoRef.current || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.7);
+
+            try {
+                wsRef.current.send(JSON.stringify({
+                    type: 'frame',
+                    frame: dataUrl
+                }));
+            } catch (err) {
+                console.error("Error sending frame:", err);
+            }
+        }
+    };
 
     // const handleNoteHit = (accuracy: string) => {
     //     setHitType(accuracy);
@@ -73,27 +128,20 @@ const Game = () => {
     //     setTimeout(() => setShowHit(false), 500);
     // };
 
+    // Simulation effect removed
+
+
     useEffect(() => {
-        if (!isModalOpen || !isGameRunning) return;
-
-        const hitTypes: Array<keyof typeof hitCounts> = ['PERFECT', 'GOOD', 'MISS'];
-
-        const interval = setInterval(() => {
-            const randomType = hitTypes[Math.floor(Math.random() * hitTypes.length)];
-
-            // increment the hitcounts
-            setHitCounts(prev => ({
-                ...prev,
-                [randomType]: prev[randomType] + 1
-            }));
-
-            setHitType(randomType);
-            setShowHit(true);
-            setTimeout(() => setShowHit(false), 500);
-        }, 2000); // Trigger every 2 seconds
-
-        return () => clearInterval(interval);
-    }, [isModalOpen, isGameRunning]);
+        let timer: ReturnType<typeof setInterval>;
+        if (isWarmingUp && countdown > 0) {
+            timer = setInterval(() => {
+                setCountdown((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [isWarmingUp, countdown]);
 
     useEffect(() => {
         setLoadingVideos(true);
@@ -124,28 +172,143 @@ const Game = () => {
             .finally(() => setLoadingRankings(false));
     }, [selectedVideo, selectedVideo?.id]);
 
-    const handleVideoClick = (video: VideoItem) => {
+    const handleVideoClick = async (video: VideoItem) => {
         setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
         setShowResults(false);
-        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setServerGrade('');
         setIsGameRunning(false);
+        setIsWarmingUp(false);
+        setCurrentCombo(0);
+        setMaxCombo(0);
         setIsModalOpen(true);
+        // Start camera when modal opens
+        await startCamera();
     };
 
-    const handleStartGame = () => {
+    const handleStartGame = async () => {
         console.log("START!");
-        setHitCounts({ PERFECT: 0, GOOD: 0, MISS: 0 });
+        setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setServerGrade('');
+        setCurrentCombo(0);
+        setMaxCombo(0);
         setIsGameRunning(true);
+        setIsWarmingUp(true);
+        setCountdown(5);
 
-        // Play the YouTube video
-        if (iframeRef && iframeRef.contentWindow) {
-            iframeRef.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-        }
+        // Camera is already running from modal open
+        // Connect WS
+        const ws = new WebSocket(WS_URL);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            const initMessage = {
+                exercise: "yout_squat"
+            }
+            ws.send(JSON.stringify(initMessage));
+
+            console.log("WS Connected");
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log("WS Message:", data.type);
+
+                if (data.type === 'init_success') {
+                    console.log("Game Initialized:", data.message);
+                    // Start sending frames
+                    if (!frameIntervalRef.current) {
+                        frameIntervalRef.current = setInterval(sendFrame, 100); // 10 FPS
+                    }
+                } else if (data.type === 'warmup_end') {
+                    console.log("Warmup Ended");
+                    setIsWarmingUp(false);
+                    // Play the YouTube video
+                    if (iframeRef && iframeRef.contentWindow) {
+                        iframeRef.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                    }
+                } else if (data.type === 'frame') {
+                    const result = data.status;
+                    console.log(result);
+                    // Update score/grade based on result
+                    // Assuming result contains score or grade
+                    if (result && result.current_grade) {
+                        const grade = result.current_grade as 'PERFECT' | 'GOOD' | 'BAD';
+
+                        setHitType(grade);
+                        setShowHit(true);
+                        setTimeout(() => setShowHit(false), 500);
+
+                        // Update combo
+                        if (grade === 'PERFECT' || grade === 'GOOD') {
+                            setCurrentCombo(prev => {
+                                const newCombo = prev + 1;
+                                setMaxCombo(current => Math.max(current, newCombo));
+                                return newCombo;
+                            });
+                        } else if (grade === 'BAD') {
+                            setCurrentCombo(0);
+                        }
+                    } else if (result && result.score !== undefined) {
+                        // Fallback if only score is provided
+                        // This logic might need adjustment based on actual server response
+                    }
+                }
+                else if (data.type === 'error') {
+                    console.error("Game Error:", data.message);
+                } else if (data.type === 'stopped') {
+                    const res = data.result;
+                    console.log("Game Stopped:", data.result);
+
+                    const ws = wsRef.current;
+                    if (ws) {
+                        ws.close();
+                        wsRef.current = null;
+                    }
+
+                    setHitCounts(res.grade_counts);
+                    if (res.grade) {
+                        setServerGrade(res.grade);
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing WS message:", e);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log("WS Closed");
+
+        };
+
+        // Play the YouTube video logic moved to warmup_end handler
+        // if (iframeRef && iframeRef.contentWindow) {
+        //     iframeRef.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        // }
     };
 
     const handleStopGame = () => {
-        console.log("sTOP!");
         setIsGameRunning(false);
+        setIsWarmingUp(false);
+        setShowHit(false);
+
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            // 프레임 전송 중지
+            if (frameIntervalRef.current) {
+                clearInterval(frameIntervalRef.current);
+                frameIntervalRef.current = null;
+            }
+
+            // 백엔드에 'stop' 메시지 전송
+            ws.send(
+                JSON.stringify({
+                    type: "stop",
+                })
+            );
+        }
+        // Camera continues running
 
         // Pause the YouTube video
         if (iframeRef && iframeRef.contentWindow) {
@@ -155,19 +318,26 @@ const Game = () => {
 
     const handleGameComplete = async () => {
         if (!selectedVideo) return;
-
         setIsGameRunning(false);
 
-        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.MISS;
+        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.BAD;
+        // if there isn't anything to submit, just show the default 0 result and return
+        if (totalHits === 0) {
+            setShowResults(true);
+            return;
+        }
+
         const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GOOD * 40);
-        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.MISS) / totalHits) * 100 : 0;
+        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.BAD) / totalHits) * 100 : 0;
 
         const results: GameResults = {
             totalScore,
             perfectHits: hitCounts.PERFECT,
             goodHits: hitCounts.GOOD,
-            missHits: hitCounts.MISS,
-            accuracy: Math.round(accuracy * 10) / 10
+            badHits: hitCounts.BAD,
+            accuracy: Math.round(accuracy * 10) / 10,
+            grade: serverGrade || 'F', // Default to F if no grade received
+            maxCombo: maxCombo
         };
 
         setGameResults(results);
@@ -235,7 +405,10 @@ const Game = () => {
 
             {/* Video Modal */}
             {isModalOpen && (
-                <div className={styles.modal} onClick={() => setIsModalOpen(false)}>
+                <div className={styles.modal} onClick={() => {
+                    setIsModalOpen(false);
+                    stopCamera();
+                }}>
                     <div className={styles.modalContent} onClick={(event) => event.stopPropagation()}>
                         {
                             !showResults ? (
@@ -246,7 +419,10 @@ const Game = () => {
                                             <button className={styles.primaryAction} onClick={handleGameComplete}>운동 완료</button>
                                             <button
                                                 className={styles.closeButton}
-                                                onClick={() => setIsModalOpen(false)}
+                                                onClick={() => {
+                                                    setIsModalOpen(false);
+                                                    stopCamera();
+                                                }}
                                             >
                                                 닫기
                                             </button>
@@ -306,11 +482,28 @@ const Game = () => {
                                         <div className={styles.hitStatusOverlay}>
                                             <p className={`${styles.hitText} ${showHit ? styles.hitTextVisible : ''} ${hitType === 'PERFECT' ? styles.hitTextPerfect :
                                                 hitType === 'GOOD' ? styles.hitTextGood :
-                                                    hitType === 'MISS' ? styles.hitTextMiss : ''
+                                                    hitType === 'BAD' ? styles.hitTextBad : ''
                                                 }`}>
                                                 {hitType}
                                             </p>
                                         </div>
+
+                                        {/* Combo Display */}
+                                        {isGameRunning && currentCombo > 0 && (
+                                            <div className={styles.comboOverlay}>
+                                                <div className={styles.comboText}>
+                                                    {currentCombo} COMBO!
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Countdown Overlay */}
+                                        {isWarmingUp && (
+                                            <div className={styles.countdownOverlay}>
+                                                {countdown > 0 ? countdown : "GO!"}
+                                            </div>
+                                        )}
+
 
                                         <iframe
                                             ref={(ref) => setIframeRef(ref)}
@@ -331,7 +524,10 @@ const Game = () => {
                                         <div className={styles.actionGroup}>
                                             <button
                                                 className={styles.closeButton}
-                                                onClick={() => setIsModalOpen(false)}
+                                                onClick={() => {
+                                                    setIsModalOpen(false);
+                                                    stopCamera();
+                                                }}
                                             >
                                                 닫기
                                             </button>
@@ -342,8 +538,14 @@ const Game = () => {
                                         <div className={styles.totalScoreValue}>
                                             {gameResults?.totalScore}
                                         </div>
+                                        <div className={styles.gradeLabel} style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginTop: '10px' }}>
+                                            Grade: {gameResults?.grade}
+                                        </div>
                                         <div className={styles.accuracyLabel}>
                                             평균 정확도: {gameResults?.accuracy}%
+                                        </div>
+                                        <div className={styles.comboLabel} style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b', marginTop: '10px' }}>
+                                            최대 콤보: {gameResults?.maxCombo}
                                         </div>
                                     </div>
 
@@ -356,9 +558,9 @@ const Game = () => {
                                             <div className={styles.hitDetailLabel}>GOOD</div>
                                             <div className={styles.hitDetailValue}>{gameResults?.goodHits}</div>
                                         </div>
-                                        <div className={`${styles.hitDetailCard} ${styles.missCard}`}>
-                                            <div className={styles.hitDetailLabel}>MISS</div>
-                                            <div className={styles.hitDetailValue}>{gameResults?.missHits}</div>
+                                        <div className={`${styles.hitDetailCard} ${styles.badCard}`}>
+                                            <div className={styles.hitDetailLabel}>BAD</div>
+                                            <div className={styles.hitDetailValue}>{gameResults?.badHits}</div>
                                         </div>
                                     </div>
                                 </>
@@ -414,6 +616,17 @@ const Game = () => {
                     )}
                 </div>
             </div>
+            {/* Camera Preview - visible when modal is open */}
+            {isModalOpen && (
+                <div className={styles.cameraPreview}>
+                    <video ref={videoRef} playsInline muted autoPlay></video>
+                </div>
+            )}
+            {/* Hidden canvas for processing */}
+            {!isModalOpen && (
+                <video ref={videoRef} style={{ display: 'none' }} playsInline muted></video>
+            )}
+            <canvas ref={canvasRef} width="640" height="480" style={{ display: 'none' }}></canvas>
         </>
     );
 }

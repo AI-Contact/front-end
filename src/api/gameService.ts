@@ -43,3 +43,5 @@ export async function submitGameScore(payload: GameScoreCreate): Promise<GameSco
     const { data } = await apiClient.post<GameScoreResponse>('/api/games/submit-score', payload);
     return data;
 }
+
+
