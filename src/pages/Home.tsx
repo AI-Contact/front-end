@@ -193,9 +193,6 @@ const Home = () => {
                             <button className={styles.primaryButton} onClick={handleStartWorkout}>
                                 오늘의 운동 시작
                             </button>
-                            <button className={styles.secondaryButton} onClick={handleViewProgress}>
-                                나의 운동 점수 보러가기
-                            </button>
                         </div>
                     </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import styles from "./AnalysisDemo.module.css";
 import { startExercise, completeExercise } from "../api/exerciseService";
 
@@ -13,6 +13,26 @@ const EXERCISE_NAME_MAP: Record<string, string> = {
   크런치: "crunch",
   "크로스 런지": "cross_lunge",
   레그레이즈: "leg_raise",
+};
+
+// 피드백 메시지 -> TTS 파일 매핑
+const FEEDBACK_TO_AUDIO: Record<string, string> = {
+  "몸통을 앞발 방향으로 맞춰주세요": "/tts/1.mp3",
+  "상체 균형을 유지하세요": "/tts/2.mp3",
+  "허리를 지면에 고정하세요": "/tts/3.mp3",
+  "어깨를 더 올려주세요": "/tts/4.mp3",
+  "긴장을 유지하세요": "/tts/5.mp3",
+  "무릎을 펴주세요": "/tts/7.mp3",
+  "내릴 때도 긴장을 유지하세요": "/tts/8.mp3",
+  "턱을 살짝 당겨주세요": "/tts/9.mp3",
+  "팔꿈치를 어깨와 정렬하세요": "/tts/10.mp3",
+  "몸통과 엉덩이의 정렬를 유지하세요": "/tts/11.mp3",
+  "상체를 지면으로부터 충분히 올리세요": "/tts/12.mp3",
+  "척추를 정렬을 맞춰주세요": "/tts/13.mp3",
+  "손을 가슴 중앙에 위치시키세요": "/tts/14.mp3",
+  "고개를 중립 상태로 유지하세요": "/tts/15.mp3",
+  "가슴을 더 내려가세요": "/tts/16.mp3",
+  "잘하고 있어요!": "/tts/17.mp3",
 };
 
 interface AIAnalysisStatus {
@@ -46,7 +66,6 @@ interface RepData {
 
 const AnalysisDemo = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { mode, exercise: exerciseData } =
     (location.state as {
       mode?: string;
@@ -100,7 +119,87 @@ const AnalysisDemo = () => {
   const sendFrameIntervalRef = useRef<number | null>(null);
   const isProcessingRef = useRef<boolean>(false);
 
-  // 모드 구분
+  // Audio for rep completion
+  const repCompletionAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // TTS Audio refs and queue
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsQueueRef = useRef<string[]>([]);
+  const isPlayingTTSRef = useRef<boolean>(false);
+  const lastFeedbackRef = useRef<string>("");
+
+  // Initialize audio
+  useEffect(() => {
+    repCompletionAudioRef.current = new Audio('/ding.mp3');
+    repCompletionAudioRef.current.volume = 0.5; // Adjust volume (0.0 to 1.0)
+  }, []);
+
+  // TTS playback function
+  const playNextTTS = useCallback(() => {
+    if (ttsQueueRef.current.length === 0) {
+      isPlayingTTSRef.current = false;
+      return;
+    }
+
+    isPlayingTTSRef.current = true;
+    const audioPath = ttsQueueRef.current.shift()!;
+
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+    }
+
+    ttsAudioRef.current = new Audio(audioPath);
+    ttsAudioRef.current.volume = 0.7;
+
+    ttsAudioRef.current.onended = () => {
+      // Recursively play next - using setTimeout to avoid React warning
+      setTimeout(() => {
+        if (ttsQueueRef.current.length > 0) {
+          playNextTTS();
+        } else {
+          isPlayingTTSRef.current = false;
+        }
+      }, 0);
+    };
+
+    ttsAudioRef.current.onerror = (error) => {
+      console.log('TTS audio error:', error);
+      setTimeout(() => {
+        if (ttsQueueRef.current.length > 0) {
+          playNextTTS();
+        } else {
+          isPlayingTTSRef.current = false;
+        }
+      }, 0);
+    };
+
+    ttsAudioRef.current.play().catch(err => {
+      console.log('TTS play failed:', err);
+      setTimeout(() => {
+        if (ttsQueueRef.current.length > 0) {
+          playNextTTS();
+        } else {
+          isPlayingTTSRef.current = false;
+        }
+      }, 0);
+    });
+  }, []);
+
+  const playTTSFeedback = useCallback((feedback: string) => {
+    const audioPath = FEEDBACK_TO_AUDIO[feedback];
+    if (!audioPath) {
+      console.log('No audio file for feedback:', feedback);
+      return;
+    }
+
+    // Add to queue
+    ttsQueueRef.current.push(audioPath);
+
+    // Start playing if not already playing
+    if (!isPlayingTTSRef.current) {
+      playNextTTS();
+    }
+  }, [playNextTTS]);  // 모드 구분
   const isWebcamMode = mode === "webcam";
   const isUploadMode = mode === "upload";
 
@@ -293,18 +392,47 @@ const AnalysisDemo = () => {
             // 회차가 증가하면 새로운 RepData 생성
             // 첫 번째 rep의 경우: actualRepCount가 1이 되면 rep 2를 준비
             if (actualRepCount > currentRepRef.current && actualRepCount > 0) {
-              // 이전 회차의 점수 저장 (첫 번째 회차인 경우도 포함)
+              // 이전 회차의 점수와 피드백 저장 (방금 완료된 회차)
+              const completedRepNumber = actualRepCount; // 방금 완료된 회차
+
+              // Play rep completion sound
+              if (repCompletionAudioRef.current) {
+                repCompletionAudioRef.current.currentTime = 0; // Reset to start
+                repCompletionAudioRef.current.play().catch(err => {
+                  console.log('Audio play failed:', err);
+                });
+              }
+
+              // 점수 저장
               if (data.status.rep_scores) {
-                const currentRepNumber = actualRepCount; // 방금 완료된 회차
-                const currentScore = data.status.rep_scores[currentRepNumber.toString()];
-                if (currentScore !== undefined) {
+                const completedScore = data.status.rep_scores[completedRepNumber.toString()];
+                if (completedScore !== undefined) {
                   setRepDataList(prev =>
                     prev.map(rep =>
-                      rep.repNumber === currentRepNumber
-                        ? { ...rep, score: currentScore }
+                      rep.repNumber === completedRepNumber
+                        ? { ...rep, score: completedScore }
                         : rep
                     )
                   );
+                }
+              }
+
+              // 피드백 저장 (rep count가 증가할 때의 피드백은 완료된 회차에 대한 것)
+              if (data.status.feedback_ko) {
+                const feedbackMessages = data.status.feedback_ko
+                  .split(" | ")
+                  .map((msg: string) => msg.trim())
+                  .filter((msg: string) => msg.length > 0);
+
+                if (feedbackMessages.length > 0) {
+                  setRepDataList(prev =>
+                    prev.map(rep =>
+                      rep.repNumber === completedRepNumber
+                        ? { ...rep, finalFeedback: feedbackMessages }
+                        : rep
+                    )
+                  );
+                  console.log(`💬 회차 ${completedRepNumber}에 피드백 저장:`, feedbackMessages);
                 }
               }
 
@@ -325,22 +453,15 @@ const AnalysisDemo = () => {
               console.log(`🆕 새로운 회차 시작: ${nextRepNumber}회 (${actualRepCount}회 완료)`);
             }
 
-            // 프레임 저장 로직 분리: 현재 운동 중인 rep에만 프레임 저장
+            // 프레임 저장 로직: 현재 운동 중인 rep에만 프레임 저장 (피드백 제외)
             // actualRepCount는 "완료된" 회차 수를 나타냄
             // 현재 진행 중인 회차는 actualRepCount + 1
             const currentlyActiveRep = actualRepCount + 1;
 
             if (data.status.is_running && data.status.is_warmup === false && currentlyActiveRep > 0) {
-              const feedbackMessages = data.status.feedback_ko
-                ? data.status.feedback_ko
-                  .split(" | ")
-                  .map((msg: string) => msg.trim())
-                  .filter((msg: string) => msg.length > 0)
-                : [];
-
               const newFrame: RepFrame = {
                 frameData: data.frame,
-                feedback: feedbackMessages,
+                feedback: [], // 프레임에는 피드백 저장 안 함 (rep 완료 시 따로 저장)
                 state: data.status.state || "unknown",
               };
 
@@ -387,6 +508,21 @@ const AnalysisDemo = () => {
               }
             }
 
+            // Play TTS for new feedback
+            if (data.status.feedback_ko && data.status.feedback_ko !== lastFeedbackRef.current) {
+              const feedbackMessages = data.status.feedback_ko
+                .split(" | ")
+                .map((msg: string) => msg.trim())
+                .filter((msg: string) => msg.length > 0);
+
+              // Play TTS for each feedback message
+              feedbackMessages.forEach((feedback: string) => {
+                playTTSFeedback(feedback);
+              });
+
+              lastFeedbackRef.current = data.status.feedback_ko;
+            }
+
             setAiStatus({
               ...data.status,
               rep_count: actualRepCount,
@@ -403,17 +539,39 @@ const AnalysisDemo = () => {
             ) {
               console.log(`🎉 목표 달성! (${actualRepCount}/${targetCount})`);
 
-              // 마지막 회차의 점수 저장
-              if (data.status.rep_scores && actualRepCount > 0) {
-                const lastRepScore = data.status.rep_scores[actualRepCount.toString()];
-                if (lastRepScore !== undefined) {
-                  setRepDataList(prev =>
-                    prev.map(rep =>
-                      rep.repNumber === actualRepCount
-                        ? { ...rep, score: lastRepScore }
-                        : rep
-                    )
-                  );
+              // 마지막 회차의 점수와 피드백 저장
+              if (actualRepCount > 0) {
+                // 점수 저장
+                if (data.status.rep_scores) {
+                  const lastRepScore = data.status.rep_scores[actualRepCount.toString()];
+                  if (lastRepScore !== undefined) {
+                    setRepDataList(prev =>
+                      prev.map(rep =>
+                        rep.repNumber === actualRepCount
+                          ? { ...rep, score: lastRepScore }
+                          : rep
+                      )
+                    );
+                  }
+                }
+
+                // 피드백 저장 (목표 도달 시의 피드백은 마지막 완료된 회차에 대한 것)
+                if (data.status.feedback_ko) {
+                  const feedbackMessages = data.status.feedback_ko
+                    .split(" | ")
+                    .map((msg: string) => msg.trim())
+                    .filter((msg: string) => msg.length > 0);
+
+                  if (feedbackMessages.length > 0) {
+                    setRepDataList(prev =>
+                      prev.map(rep =>
+                        rep.repNumber === actualRepCount
+                          ? { ...rep, finalFeedback: feedbackMessages }
+                          : rep
+                      )
+                    );
+                    console.log(`💬 마지막 회차(${actualRepCount})에 피드백 저장:`, feedbackMessages);
+                  }
                 }
               }
 
@@ -1047,10 +1205,11 @@ const AnalysisDemo = () => {
                                         <span className={styles.stateIndicator}>{currentFrame.state}</span>                                      </div>
                                     </div>
                                   </div>
-                                  {currentFrame.feedback.length > 0 && (
+                                  {/* 회차 완료 후 받은 최종 피드백 표시 */}
+                                  {repData.finalFeedback && repData.finalFeedback.length > 0 && (
                                     <div className={styles.animatedFrameFeedback}>
-                                      <div className={styles.feedbackTitle}>피드백:</div>
-                                      {currentFrame.feedback.map((msg, msgIndex) => (
+                                      <div className={styles.feedbackTitle}>회차 완료 피드백:</div>
+                                      {repData.finalFeedback.map((msg, msgIndex) => (
                                         <div key={msgIndex} className={styles.animatedFeedbackLine}>
                                           {msg}
                                         </div>
