@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import styles from "./AnalysisDemo.module.css";
+import { startExercise, completeExercise } from "../api/exerciseService";
 
 // 웹소켓 URL (백엔드 서버로 직접 연결)
 const WS_URL = "ws://localhost/api/exercises/pose-analysis/ws";
@@ -45,6 +46,7 @@ interface RepData {
 
 const AnalysisDemo = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { mode, exercise: exerciseData } =
     (location.state as {
       mode?: string;
@@ -56,6 +58,10 @@ const AnalysisDemo = () => {
   const [targetTime, setTargetTime] = useState<number | "">("");
   const [isRunning, setIsRunning] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Exercise record tracking
+  const [exerciseRecordId, setExerciseRecordId] = useState<number | null>(null);
+  const exerciseStartTimeRef = useRef<Date | null>(null);
 
   // AI 분석 상태
   const [aiStatus, setAiStatus] = useState<AIAnalysisStatus>({
@@ -79,6 +85,9 @@ const AnalysisDemo = () => {
 
   // 결과 모달 표시 여부
   const [showResultModal, setShowResultModal] = useState(false);
+
+  // 운동 결과 저장 여부 추적
+  const [isSaved, setIsSaved] = useState(false);
 
   // 각 회차의 현재 프레임 인덱스 추적 (애니메이션용)
   const [currentFrameIndices, setCurrentFrameIndices] = useState<Record<number, number>>({});
@@ -110,6 +119,7 @@ const AnalysisDemo = () => {
       setRepDataList([]);
       currentRepRef.current = 0;
       wasWarmupRef.current = true; // 워밍업 상태 초기화
+      setIsSaved(false); // 저장 상태 초기화
 
       const isPlank = exercise === "플랭크";
 
@@ -211,6 +221,27 @@ const AnalysisDemo = () => {
           console.log("초기화 성공:", data.message);
           setIsRunning(true);
 
+          // Start exercise record via API
+          if (exerciseData?.id) {
+            exerciseStartTimeRef.current = new Date();
+            const targetReps = typeof targetCount === "number" ? targetCount : 10;
+            const estimatedDuration = targetReps * 2; // Estimate 2 minutes per rep
+
+            startExercise({
+              exercise_id: exerciseData.id,
+              duration: estimatedDuration,
+              repetitions: targetReps,
+              sets_completed: 1,
+            })
+              .then((recordResponse) => {
+                setExerciseRecordId(recordResponse.id);
+                console.log("✅ Exercise record started:", recordResponse.id);
+              })
+              .catch((err) => {
+                console.error("❌ Failed to start exercise record:", err);
+              });
+          }
+
           if (isUploadMode && videoElementRef.current) {
             videoElementRef.current.play();
           }
@@ -294,10 +325,12 @@ const AnalysisDemo = () => {
               console.log(`🆕 새로운 회차 시작: ${nextRepNumber}회 (${actualRepCount}회 완료)`);
             }
 
-            // 현재 진행 중인 회차에 프레임 추가 (is_running이 true이고 워밍업이 아닐 때)
-            // actualRepCount가 0이면 rep 1에 저장, 그 외에는 actualRepCount + 1에 저장
-            const effectiveRepNumber = actualRepCount === 0 ? 1 : actualRepCount + 1;
-            if (data.status.is_running && data.status.is_warmup === false && effectiveRepNumber > 0) {
+            // 프레임 저장 로직 분리: 현재 운동 중인 rep에만 프레임 저장
+            // actualRepCount는 "완료된" 회차 수를 나타냄
+            // 현재 진행 중인 회차는 actualRepCount + 1
+            const currentlyActiveRep = actualRepCount + 1;
+
+            if (data.status.is_running && data.status.is_warmup === false && currentlyActiveRep > 0) {
               const feedbackMessages = data.status.feedback_ko
                 ? data.status.feedback_ko
                   .split(" | ")
@@ -311,23 +344,42 @@ const AnalysisDemo = () => {
                 state: data.status.state || "unknown",
               };
 
-              setRepDataList(prev =>
-                prev.map(rep =>
-                  rep.repNumber === effectiveRepNumber
+              setRepDataList(prev => {
+                // 현재 활성 rep이 존재하는지 확인
+                const activeRepExists = prev.some(rep => rep.repNumber === currentlyActiveRep);
+
+                if (!activeRepExists) {
+                  // 활성 rep이 아직 없다면 생성 (방어 코드)
+                  console.warn(`⚠️ Rep ${currentlyActiveRep}가 존재하지 않아 생성합니다.`);
+                  return [
+                    ...prev,
+                    {
+                      repNumber: currentlyActiveRep,
+                      frames: [newFrame],
+                      score: undefined,
+                      finalFeedback: [],
+                    }
+                  ];
+                }
+
+                // 현재 활성 rep에 프레임 추가
+                return prev.map(rep =>
+                  rep.repNumber === currentlyActiveRep
                     ? { ...rep, frames: [...rep.frames, newFrame] }
                     : rep
-                )
-              );
-              console.log(`➕ 회차 ${effectiveRepNumber}에 프레임 추가 (actualRepCount: ${actualRepCount})`);
+                );
+              });
+
+              console.log(`➕ 회차 ${currentlyActiveRep}에 프레임 추가 (완료된 횟수: ${actualRepCount}, state: ${data.status.state || "unknown"})`);
             }
 
             // 현재 회차의 점수를 실시간으로 업데이트
-            if (effectiveRepNumber > 0 && data.status.rep_scores) {
-              const currentRepScore = data.status.rep_scores[effectiveRepNumber.toString()];
+            if (currentlyActiveRep > 0 && data.status.rep_scores) {
+              const currentRepScore = data.status.rep_scores[currentlyActiveRep.toString()];
               if (currentRepScore !== undefined) {
                 setRepDataList(prev =>
                   prev.map(rep =>
-                    rep.repNumber === effectiveRepNumber
+                    rep.repNumber === currentlyActiveRep
                       ? { ...rep, score: currentRepScore }
                       : rep
                   )
@@ -341,7 +393,7 @@ const AnalysisDemo = () => {
             });
 
             console.log(
-              `✅ 실제 운동 횟수: ${actualRepCount} (백엔드 rep_count: ${data.status.rep_count}, effective: ${effectiveRepNumber})`
+              `✅ 실제 운동 횟수: ${actualRepCount} (백엔드 rep_count: ${data.status.rep_count}, 현재 진행 중인 회차: ${currentlyActiveRep})`
             );
 
             // 목표 횟수 도달 시 자동 중지
@@ -363,18 +415,6 @@ const AnalysisDemo = () => {
                     )
                   );
                 }
-              }
-
-              // localStorage에 평균 점수 저장
-              if (exerciseData?.id && data.status.total_score) {
-                const averageScore = (data.status.total_score * 100).toFixed(2);
-                localStorage.setItem(
-                  `exercise_${exerciseData.id}_score`,
-                  averageScore
-                );
-                console.log(
-                  `✅ 점수 저장: Exercise ${exerciseData.id} -> ${averageScore}점`
-                );
               }
 
               setTimeout(() => {
@@ -577,6 +617,42 @@ const AnalysisDemo = () => {
 
     return () => clearInterval(interval);
   }, [showResultModal, repDataList]);
+
+  // 운동 결과 저장 함수
+  const handleSaveExercise = async () => {
+    if (!exerciseRecordId || isSaved) {
+      console.log("Already saved or no record ID");
+      setShowResultModal(false);
+      return;
+    }
+    console.log("🐢🐢🐢🐢:", aiStatus.total_score);
+    try {
+      const durationInMinutes = exerciseStartTimeRef.current
+        ? Math.ceil((new Date().getTime() - exerciseStartTimeRef.current.getTime()) / 60000)
+        : 1;
+
+      const accuracyScore = (aiStatus.total_score || 0) * 100;
+      const formScore = (aiStatus.total_score || 0) * 100;
+      const tempoScore = (aiStatus.total_score || 0) * 100;
+      const caloriesBurned = durationInMinutes * (exerciseData?.id ? 5 : 3); // Rough estimate
+
+      await completeExercise(exerciseRecordId, {
+        accuracy_score: accuracyScore,
+        form_score: formScore,
+        tempo_score: tempoScore,
+        feedback_data: aiStatus.feedback_ko ? { feedback: aiStatus.feedback_ko } : undefined,
+        pose_analysis: aiStatus.rep_scores ? { rep_scores: aiStatus.rep_scores } : undefined,
+        calories_burned: caloriesBurned,
+      });
+
+      console.log("✅ Exercise saved successfully");
+      setIsSaved(true);
+      alert("운동 기록이 저장되었습니다!");
+    } catch (err) {
+      console.error("❌ Failed to save exercise record:", err);
+      alert("운동 기록 저장에 실패했습니다.");
+    }
+  };
 
   const feedbackMessages =
     aiStatus.feedback_ko
@@ -999,9 +1075,10 @@ const AnalysisDemo = () => {
             <div className={styles.modalFooter}>
               <button
                 className={styles.modalConfirmButton}
-                onClick={() => setShowResultModal(false)}
+                onClick={handleSaveExercise}
+                disabled={isSaved || !exerciseRecordId}
               >
-                확인
+                {isSaved ? "✅ 저장 완료" : "💾 결과 저장"}
               </button>
             </div>
           </div>

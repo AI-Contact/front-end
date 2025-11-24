@@ -88,3 +88,14 @@ export const getMyRecords = async (params?: {
     const response = await apiClient.get('/api/exercises/records/my', { params });
     return response.data;
 };
+
+/**
+ * 내 운동 통계 조회
+ * @param exerciseId - 운동 ID (선택)
+ */
+export const getMyStats = async (params?: {
+    exercise_id?: number;
+}) => {
+    const response = await apiClient.get('/api/exercises/stats/my', { params });
+    return response.data;
+};

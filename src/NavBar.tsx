@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import styles from "./NavBar.module.css"
 
 // icons
-import { FaHouse, FaBolt, FaChartColumn, FaDumbbell } from "react-icons/fa6";
+import { FaHouse, FaBolt, FaDumbbell } from "react-icons/fa6";
 import { FaCog } from "react-icons/fa";
 import { IoLogOut } from "react-icons/io5";
 import { clearTokens } from "./auth/token";
@@ -25,7 +25,7 @@ const NavBar = ({ collapsed }: { collapsed: boolean }) => {
             <div className={styles.mainMenu}>
                 <Link
                     to="/home"
-                    className={`${styles.navitem} ${location.pathname === '/' ? styles.active : ''}`}
+                    className={`${styles.navitem} ${location.pathname === '/home' ? styles.active : ''}`}
                 >
                     <FaHouse />
                     {!collapsed && <span>홈</span>}
@@ -43,13 +43,6 @@ const NavBar = ({ collapsed }: { collapsed: boolean }) => {
                 >
                     <FaBolt />
                     {!collapsed && <span>게임하기</span>}
-                </Link>
-                <Link
-                    to="/report"
-                    className={`${styles.navitem} ${location.pathname === '/report' ? styles.active : ''}`}
-                >
-                    <FaChartColumn />
-                    {!collapsed && <span>건강레포트</span>}
                 </Link>
             </div>
 

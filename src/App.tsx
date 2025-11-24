@@ -4,14 +4,11 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 
 import NavBar from './NavBar'
 import Home from './pages/Home'
-import Report from './pages/Report'
 import Settings from './pages/Settings'
 import Game from './pages/Game'
 import Workout from './pages/Workout'
 import Login from './pages/Login'
 import Register from './pages/Register'
-
-import ExerciseSession from './pages/ExerciseSession'
 import AnalysisDemo from './pages/AnalysisDemo'
 
 import { useState } from 'react'
@@ -50,7 +47,7 @@ function AppContent() {
             </button>
             <div className='header-content'>
               <div className='header-text'>
-                <p className='header-subtitle'>Fitness with Accuracy</p>
+                <p className='header-subtitle'>Fitness with AIccuracy</p>
                 <h1 className='header-title'>정확하고 꾸준하게 운동할 수 있게, AI와 함께!</h1>
               </div>
               <div className='header-actions'>
@@ -86,8 +83,6 @@ function AppContent() {
 
           {/* Use ProtectedRoute to guard other pages */}
           <Route path="/workout" element={<ProtectedRoute element={Workout} />} />
-          <Route path="/exercise-session" element={<ExerciseSession />}></Route>
-          <Route path="/report" element={<ProtectedRoute element={Report} />} />
           <Route path="/analysis-demo" element={<AnalysisDemo />}></Route>
           <Route path="/game" element={<ProtectedRoute element={Game} />} />
           <Route path="/settings" element={<ProtectedRoute element={Settings} />} />

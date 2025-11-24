@@ -6,16 +6,24 @@
     padding: 0;
 }
 
-/* Top Section: Welcome Banner + Weekly Ranking */
+/* Top Section: Welcome Banner + Weekly Ranking + Calendar */
 .topSection {
     display: flex;
     gap: 20px;
 }
 
+/* Left Column: Banner + Ranking */
+.leftColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 0 0 400px;
+}
+
 /* Welcome Banner */
 .welcomeBanner {
-    width: 607px;
-    height: 269px;
+    width: 400px;
+    height: 300px;
     background: linear-gradient(135deg, #9810fa 0%, #6b46ff 50%, #5724ff 100%);
     border-radius: 16px;
     box-shadow: 0px 8px 32px 0px rgba(87, 36, 255, 0.15);
@@ -105,19 +113,13 @@
 
 /* Weekly Ranking Card */
 .weeklyRanking {
-    flex: 1;
+    width: 410px;
+    height: 360px;
     background-color: white;
     border: 1px solid #f1f5f9;
     border-radius: 16px;
     box-shadow: 0px 4px 24px 0px rgba(0, 0, 0, 0.08);
     padding: 25px;
-}
-
-.cardTitle {
-    font-weight: 700;
-    font-size: 20px;
-    color: #1d293d;
-    margin: 0 0 16px 0;
 }
 
 .rankingList {
@@ -163,6 +165,11 @@
     color: #7e2a0c;
 }
 
+.rankBadge.regular {
+    /* background-color: #e2e8f0; */
+    color: #314158;
+}
+
 .rankEmoji {
     font-size: 24px;
 }
@@ -178,6 +185,226 @@
     font-weight: 700;
     font-size: 16px;
     color: #9810fa;
+}
+
+/* Workout Calendar Card */
+.workoutCalendar {
+    flex: 1;
+    background-color: white;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    box-shadow: 0px 4px 24px 0px rgba(0, 0, 0, 0.08);
+    padding: 25px;
+    min-width: 500px;
+}
+
+.cardTitle {
+    font-weight: 700;
+    font-size: 20px;
+    color: #1d293d;
+    margin: 0 0 4px 0;
+}
+
+.calendarSubtitle {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0 0 16px 0;
+}
+
+/* Calendar header with days of week */
+.calendarHeader {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.dayOfWeek {
+    text-align: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: #64748b;
+    padding: 8px 0;
+}
+
+.dayOfWeek:first-child {
+    color: #ef4444;
+    /* Sunday in red */
+}
+
+.dayOfWeek:last-child {
+    color: #3b82f6;
+    /* Saturday in blue */
+}
+
+/* Calendar grid */
+.calendarGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.calendarDay {
+    min-height: 70px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.calendarDay:hover {
+    background-color: #f1f5f9;
+    transform: translateY(-2px);
+}
+
+.calendarDay.emptyDay {
+    background-color: transparent;
+    border: none;
+    pointer-events: none;
+}
+
+.calendarDay.today {
+    background-color: #eff6ff;
+    border: 2px solid #3b82f6;
+}
+
+.calendarDay .dayNumber {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.calendarDay.today .dayNumber {
+    color: #3b82f6;
+}
+
+/* Exercise tags container */
+.exerciseTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: flex-start;
+}
+
+/* Individual exercise tag (circular) */
+.exerciseTag {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.exerciseTag:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+/* Tooltip modal */
+.exerciseTooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Tooltip arrow */
+.exerciseTooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(0, 0, 0, 0.9);
+}
+
+.exerciseTag:hover .exerciseTooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tooltipExerciseName {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+.tooltipScore,
+.tooltipReps {
+    font-weight: 700;
+    font-size: 14px;
+    color: #FFD700;
+}
+
+.exerciseScore {
+    font-weight: 700;
+    font-size: 10px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.exerciseTag:hover .exerciseScore {
+    opacity: 1;
+}
+
+/* Legend */
+.exerciseLegend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    /* justify-content: space-between; */
+    flex-wrap: wrap;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.legendItem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legendCircle {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.legendItem span {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
 }
 
 /* Middle Section: Weekly Progress */
