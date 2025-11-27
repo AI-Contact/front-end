@@ -22,7 +22,6 @@ interface GameResults {
     badHits: number;
     accuracy: number;
     grade: string;
-    maxCombo: number;
 }
 
 const Game = () => {
@@ -74,8 +73,6 @@ const Game = () => {
     const [countdown, setCountdown] = useState(5);
     const [serverGrade, setServerGrade] = useState<string>('');
     const [iframeRef, setIframeRef] = useState<HTMLIFrameElement | null>(null);
-    const [currentCombo, setCurrentCombo] = useState(0);
-    const [maxCombo, setMaxCombo] = useState(0);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -179,8 +176,6 @@ const Game = () => {
         setServerGrade('');
         setIsGameRunning(false);
         setIsWarmingUp(false);
-        setCurrentCombo(0);
-        setMaxCombo(0);
         setIsModalOpen(true);
         // Start camera when modal opens
         await startCamera();
@@ -190,8 +185,6 @@ const Game = () => {
         console.log("START!");
         setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
         setServerGrade('');
-        setCurrentCombo(0);
-        setMaxCombo(0);
         setIsGameRunning(true);
         setIsWarmingUp(true);
         setCountdown(5);
@@ -203,7 +196,7 @@ const Game = () => {
 
         ws.onopen = () => {
             const initMessage = {
-                exercise: "yout_squat"
+                video_id: selectedVideo!.id
             }
             ws.send(JSON.stringify(initMessage));
 
@@ -213,13 +206,12 @@ const Game = () => {
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log("WS Message:", data.type);
 
                 if (data.type === 'init_success') {
                     console.log("Game Initialized:", data.message);
-                    // Start sending frames
+                    // 프레임 전송 시작 (전송 속도 대폭 감소: 10 FPS → 4 FPS)
                     if (!frameIntervalRef.current) {
-                        frameIntervalRef.current = setInterval(sendFrame, 100); // 10 FPS
+                        frameIntervalRef.current = setInterval(sendFrame, 250); // 250ms = 4 FPS
                     }
                 } else if (data.type === 'warmup_end') {
                     console.log("Warmup Ended");
@@ -230,30 +222,24 @@ const Game = () => {
                     }
                 } else if (data.type === 'frame') {
                     const result = data.status;
-                    console.log(result);
-                    // Update score/grade based on result
-                    // Assuming result contains score or grade
-                    if (result && result.current_grade) {
+                    // console.log(result);
+                    // 운동 구간에서 3초마다 새 등급이 매겨질 때만 화면에 표시
+                    if (result && result.grade_changed && result.current_grade) {
                         const grade = result.current_grade as 'PERFECT' | 'GOOD' | 'BAD';
+                        console.log(`✨ 새 등급 평가: ${grade} (점수: ${result.score?.toFixed(1)}, 시간: ${result.grade_timestamp?.toFixed(1)}s, REST: ${result.is_rest})`);
+
+                        // 등급 카운트 증가
+                        setHitCounts(prev => ({
+                            ...prev,
+                            [grade]: prev[grade] + 1
+                        }));
 
                         setHitType(grade);
                         setShowHit(true);
                         setTimeout(() => setShowHit(false), 500);
-
-                        // Update combo
-                        if (grade === 'PERFECT' || grade === 'GOOD') {
-                            setCurrentCombo(prev => {
-                                const newCombo = prev + 1;
-                                setMaxCombo(current => Math.max(current, newCombo));
-                                return newCombo;
-                            });
-                        } else if (grade === 'BAD') {
-                            setCurrentCombo(0);
-                        }
-                    } else if (result && result.score !== undefined) {
-                        // Fallback if only score is provided
-                        // This logic might need adjustment based on actual server response
                     }
+                } else if (data.type === 'warmup_end') {
+
                 }
                 else if (data.type === 'error') {
                     console.error("Game Error:", data.message);
@@ -267,9 +253,23 @@ const Game = () => {
                         wsRef.current = null;
                     }
 
-                    setHitCounts(res.grade_counts);
-                    if (res.grade) {
-                        setServerGrade(res.grade);
+                    // 영상을 끝까지 완료한 경우에만 결과 처리
+                    if (res.video_completed) {
+                        setHitCounts(res.grade_counts);
+                        if (res.final_rank) {
+                            setServerGrade(res.final_rank);
+                        }
+                        // 자동으로 결과 화면 표시 및 점수 제출 (백엔드 점수 사용)
+                        handleGameComplete(true, res.grade_counts, res.final_rank, res.final_score);
+                    } else {
+                        // 중간에 수동 종료한 경우
+                        console.log("영상 중간 종료 - 결과 화면 표시하지 않고 hitCounts만 업데이트");
+                        setHitCounts(res.grade_counts);
+                        if (res.final_rank) {
+                            setServerGrade(res.final_rank);
+                        }
+                        setIsGameRunning(false);
+                        // 결과 화면 표시하지 않음 (사용자가 직접 "운동 완료" 버튼 클릭 필요)
                     }
                 }
             } catch (e) {
@@ -291,7 +291,6 @@ const Game = () => {
     const handleStopGame = () => {
         setIsGameRunning(false);
         setIsWarmingUp(false);
-        setShowHit(false);
 
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -307,6 +306,8 @@ const Game = () => {
                     type: "stop",
                 })
             );
+            
+            // stop 메시지 전송 후 WebSocket은 stopped 메시지를 받은 후에 닫힘
         }
         // Camera continues running
 
@@ -316,28 +317,52 @@ const Game = () => {
         }
     };
 
-    const handleGameComplete = async () => {
+    const handleGameComplete = async (fromAutoComplete: boolean = false, providedGradeCounts?: any, providedGrade?: string, providedScore?: number) => {
         if (!selectedVideo) return;
+
+        // 자동 완료가 아닌 경우(수동 종료)에만 WebSocket에 stop 메시지 전송
+        if (!fromAutoComplete) {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // 프레임 전송 중지
+                if (frameIntervalRef.current) {
+                    clearInterval(frameIntervalRef.current);
+                    frameIntervalRef.current = null;
+                }
+
+                // 백엔드에 'stop' 메시지 전송
+                ws.send(JSON.stringify({ type: "stop" }));
+                console.log("Stop message sent to backend - waiting for stopped response");
+                // stopped 응답을 기다림 (여기서 리턴)
+                return;
+            }
+        }
+
+        // 여기부터는 stopped 응답을 받았을 때 실행됨
         setIsGameRunning(false);
 
-        const totalHits = hitCounts.PERFECT + hitCounts.GOOD + hitCounts.BAD;
+        // providedGradeCounts가 있으면 사용, 없으면 state의 hitCounts 사용
+        const counts = providedGradeCounts || hitCounts;
+        const grade = providedGrade || serverGrade || 'F';
+
+        const totalHits = counts.PERFECT + counts.GOOD + counts.BAD;
         // if there isn't anything to submit, just show the default 0 result and return
         if (totalHits === 0) {
             setShowResults(true);
             return;
         }
 
-        const totalScore = (hitCounts.PERFECT * 100) + (hitCounts.GOOD * 40);
-        const accuracy = totalHits > 0 ? ((totalHits - hitCounts.BAD) / totalHits) * 100 : 0;
+        // 백엔드에서 계산한 점수 사용, 없으면 자체 계산
+        const totalScore = providedScore !== undefined ? providedScore : (counts.PERFECT * 100) + (counts.GOOD * 40);
+        const accuracy = totalHits > 0 ? ((totalHits - counts.BAD) / totalHits) * 100 : 0;
 
         const results: GameResults = {
             totalScore,
-            perfectHits: hitCounts.PERFECT,
-            goodHits: hitCounts.GOOD,
-            badHits: hitCounts.BAD,
+            perfectHits: counts.PERFECT,
+            goodHits: counts.GOOD,
+            badHits: counts.BAD,
             accuracy: Math.round(accuracy * 10) / 10,
-            grade: serverGrade || 'F', // Default to F if no grade received
-            maxCombo: maxCombo
+            grade: grade
         };
 
         setGameResults(results);
@@ -416,7 +441,7 @@ const Game = () => {
                                     <div className={styles.modalHeader}>
                                         <h2 className={styles.modalTitle}>{videoList.find(v => v.id === selectedVideo?.id)?.title}</h2>
                                         <div className={styles.actionGroup}>
-                                            <button className={styles.primaryAction} onClick={handleGameComplete}>운동 완료</button>
+                                            <button className={styles.primaryAction} onClick={() => handleGameComplete()}>운동 완료</button>
                                             <button
                                                 className={styles.closeButton}
                                                 onClick={() => {
@@ -488,15 +513,6 @@ const Game = () => {
                                             </p>
                                         </div>
 
-                                        {/* Combo Display */}
-                                        {isGameRunning && currentCombo > 0 && (
-                                            <div className={styles.comboOverlay}>
-                                                <div className={styles.comboText}>
-                                                    {currentCombo} COMBO!
-                                                </div>
-                                            </div>
-                                        )}
-
                                         {/* Countdown Overlay */}
                                         {isWarmingUp && (
                                             <div className={styles.countdownOverlay}>
@@ -543,9 +559,6 @@ const Game = () => {
                                         </div>
                                         <div className={styles.accuracyLabel}>
                                             평균 정확도: {gameResults?.accuracy}%
-                                        </div>
-                                        <div className={styles.comboLabel} style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b', marginTop: '10px' }}>
-                                            최대 콤보: {gameResults?.maxCombo}
                                         </div>
                                     </div>
 
@@ -616,16 +629,11 @@ const Game = () => {
                     )}
                 </div>
             </div>
-            {/* Camera Preview - visible when modal is open */}
-            {isModalOpen && (
-                <div className={styles.cameraPreview}>
-                    <video ref={videoRef} playsInline muted autoPlay></video>
-                </div>
-            )}
+            {/* Camera Preview - always render but control visibility with CSS */}
+            <div className={styles.cameraPreview} style={{ display: isModalOpen ? 'block' : 'none' }}>
+                <video ref={videoRef} playsInline muted autoPlay></video>
+            </div>
             {/* Hidden canvas for processing */}
-            {!isModalOpen && (
-                <video ref={videoRef} style={{ display: 'none' }} playsInline muted></video>
-            )}
             <canvas ref={canvasRef} width="640" height="480" style={{ display: 'none' }}></canvas>
         </>
     );
