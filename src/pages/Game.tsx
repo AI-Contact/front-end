@@ -106,7 +106,7 @@ const Game = () => {
         const ctx = canvasRef.current.getContext('2d');
         if (ctx) {
             ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-            const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.7);
+            const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
 
             try {
                 wsRef.current.send(JSON.stringify({
@@ -211,7 +211,7 @@ const Game = () => {
                     console.log("Game Initialized:", data.message);
                     // 프레임 전송 시작 (전송 속도 대폭 감소: 10 FPS → 4 FPS)
                     if (!frameIntervalRef.current) {
-                        frameIntervalRef.current = setInterval(sendFrame, 250); // 250ms = 4 FPS
+                        frameIntervalRef.current = setInterval(sendFrame, 333); // 250ms = 4 FPS
                     }
                 } else if (data.type === 'warmup_end') {
                     console.log("Warmup Ended");
@@ -260,14 +260,14 @@ const Game = () => {
                         // 자동으로 결과 화면 표시 및 점수 제출 (백엔드 점수 사용)
                         handleGameComplete(true, res.grade_counts, res.final_rank, res.final_score);
                     } else {
-                        // 중간에 수동 종료한 경우
-                        console.log("영상 중간 종료 - 결과 화면 표시하지 않고 hitCounts만 업데이트");
+                        // 중간에 수동 종료한 경우에도 결과 화면 표시
+                        console.log("영상 중간 종료 - 결과 화면 표시 (백엔드 점수 사용)");
                         setHitCounts(res.grade_counts);
                         if (res.final_rank) {
                             setServerGrade(res.final_rank);
                         }
-                        setIsGameRunning(false);
-                        // 결과 화면 표시하지 않음 (사용자가 직접 "운동 완료" 버튼 클릭 필요)
+                        // 백엔드에서 계산한 점수로 결과 화면 표시
+                        handleGameComplete(true, res.grade_counts, res.final_rank, res.final_score);
                     }
                 }
             } catch (e) {
@@ -350,8 +350,10 @@ const Game = () => {
             return;
         }
 
-        // 백엔드에서 계산한 점수 사용, 없으면 자체 계산
-        const totalScore = providedScore !== undefined ? providedScore : (counts.PERFECT * 100) + (counts.GOOD * 40);
+        // 백엔드에서 계산한 점수 사용, 없으면 자체 계산 (백엔드와 동일한 공식)
+        const totalScore = providedScore !== undefined 
+            ? providedScore 
+            : ((counts.PERFECT * 100.0 + counts.GOOD * 70.0 + counts.BAD * 30.0) / totalHits);
         const accuracy = totalHits > 0 ? ((totalHits - counts.BAD) / totalHits) * 100 : 0;
 
         const results: GameResults = {
