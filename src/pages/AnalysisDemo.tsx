@@ -129,6 +129,11 @@ const AnalysisDemo = () => {
   const isPlayingTTSRef = useRef<boolean>(false);
   const lastFeedbackRef = useRef<string>("");
 
+  // Camera selection modal
+  const [isCameraSelectModalOpen, setIsCameraSelectModalOpen] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+
   // Initialize audio
   useEffect(() => {
     repCompletionAudioRef.current = new Audio('/ding.mp3');
@@ -204,6 +209,21 @@ const AnalysisDemo = () => {
   const isWebcamMode = mode === "webcam";
   const isUploadMode = mode === "upload";
 
+  // 카메라 목록 가져오기
+  const enumerateCameras = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      setAvailableCameras(videoDevices);
+      if (videoDevices.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(videoDevices[0].deviceId);
+      }
+    } catch (err) {
+      console.error("Error enumerating cameras:", err);
+      alert("카메라 목록을 불러올 수 없습니다.");
+    }
+  };
+
   // 파일 업로드 핸들러
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -228,6 +248,13 @@ const AnalysisDemo = () => {
 
       if (!exerciseNameEn) {
         alert("운동 종류를 선택해주세요.");
+        return;
+      }
+
+      // 웹캠 모드일 때 카메라 선택 모달 표시
+      if (isWebcamMode) {
+        await enumerateCameras();
+        setIsCameraSelectModalOpen(true);
         return;
       }
 
@@ -261,14 +288,22 @@ const AnalysisDemo = () => {
         canvasElementRef.current = canvas;
 
       } else {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 480 },
-            height: { ideal: 360 },
-            frameRate: { ideal: 20, max: 30 },
-          },
+        const constraints: MediaStreamConstraints = {
+          video: selectedCameraId
+            ? {
+              deviceId: { exact: selectedCameraId },
+              width: { ideal: 480 },
+              height: { ideal: 360 },
+              frameRate: { ideal: 20, max: 30 },
+            }
+            : {
+              width: { ideal: 480 },
+              height: { ideal: 360 },
+              frameRate: { ideal: 20, max: 30 },
+            },
           audio: false,
-        });
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         localStreamRef.current = stream;
 
@@ -347,6 +382,373 @@ const AnalysisDemo = () => {
           }
 
           const fps = isUploadMode ? 30 : 20;
+          sendFrameIntervalRef.current = window.setInterval(
+            sendFrame,
+            1000 / fps
+          );
+        } else if (data.type === "frame") {
+          // 처리된 프레임 표시
+          setVideoFrame(data.frame);
+
+          // 상태 업데이트
+          if (data.status) {
+            console.log(
+              "📊 받은 status:",
+              JSON.stringify(data.status, null, 2)
+            );
+
+            const actualRepCount =
+              data.status.rep_scores &&
+                Object.keys(data.status.rep_scores).length > 0
+                ? Math.max(
+                  ...Object.keys(data.status.rep_scores).map((k) =>
+                    parseInt(k)
+                  )
+                )
+                : data.status.rep_count || data.status.counters?.reps || 0;
+
+            // 특별 처리: 워밍업이 끝나고 첫 번째 회차가 시작될 때
+            if (wasWarmupRef.current && data.status.is_warmup === false && actualRepCount === 0) {
+              console.log("🎯 워밍업 종료 - 첫 번째 회차 준비");
+              wasWarmupRef.current = false;
+              currentRepRef.current = 0; // 0으로 설정해서 actualRepCount가 1이 되면 새 rep이 생성되도록
+
+              // 첫 번째 회차 데이터 생성
+              setRepDataList([
+                {
+                  repNumber: 1,
+                  frames: [],
+                  score: undefined,
+                  finalFeedback: [],
+                }
+              ]);
+              console.log("🆕 첫 번째 회차 생성 (워밍업 종료 후)");
+            }
+
+            // 회차가 증가하면 새로운 RepData 생성
+            // 첫 번째 rep의 경우: actualRepCount가 1이 되면 rep 2를 준비
+            if (actualRepCount > currentRepRef.current && actualRepCount > 0) {
+              // 이전 회차의 점수와 피드백 저장 (방금 완료된 회차)
+              const completedRepNumber = actualRepCount; // 방금 완료된 회차
+
+              // Play rep completion sound
+              if (repCompletionAudioRef.current) {
+                repCompletionAudioRef.current.currentTime = 0; // Reset to start
+                repCompletionAudioRef.current.play().catch(err => {
+                  console.log('Audio play failed:', err);
+                });
+              }
+
+              // 점수 저장
+              if (data.status.rep_scores) {
+                const completedScore = data.status.rep_scores[completedRepNumber.toString()];
+                if (completedScore !== undefined) {
+                  setRepDataList(prev =>
+                    prev.map(rep =>
+                      rep.repNumber === completedRepNumber
+                        ? { ...rep, score: completedScore }
+                        : rep
+                    )
+                  );
+                }
+              }
+
+              // 피드백 저장 (rep count가 증가할 때의 피드백은 완료된 회차에 대한 것)
+              if (data.status.feedback_ko) {
+                const feedbackMessages = data.status.feedback_ko
+                  .split(" | ")
+                  .map((msg: string) => msg.trim())
+                  .filter((msg: string) => msg.length > 0);
+
+                if (feedbackMessages.length > 0) {
+                  setRepDataList(prev =>
+                    prev.map(rep =>
+                      rep.repNumber === completedRepNumber
+                        ? { ...rep, finalFeedback: feedbackMessages }
+                        : rep
+                    )
+                  );
+                  console.log(`💬 회차 ${completedRepNumber}에 피드백 저장:`, feedbackMessages);
+                }
+              }
+
+              currentRepRef.current = actualRepCount;
+
+              // 다음 회차 데이터 추가 (actualRepCount + 1)
+              const nextRepNumber = actualRepCount + 1;
+              setRepDataList(prev => [
+                ...prev,
+                {
+                  repNumber: nextRepNumber,
+                  frames: [],
+                  score: undefined,
+                  finalFeedback: [],
+                }
+              ]);
+
+              console.log(`🆕 새로운 회차 시작: ${nextRepNumber}회 (${actualRepCount}회 완료)`);
+            }
+
+            // 프레임 저장 로직: 현재 운동 중인 rep에만 프레임 저장 (피드백 제외)
+            // actualRepCount는 "완료된" 회차 수를 나타냄
+            // 현재 진행 중인 회차는 actualRepCount + 1
+            const currentlyActiveRep = actualRepCount + 1;
+
+            if (data.status.is_running && data.status.is_warmup === false && currentlyActiveRep > 0) {
+              const newFrame: RepFrame = {
+                frameData: data.frame,
+                feedback: [], // 프레임에는 피드백 저장 안 함 (rep 완료 시 따로 저장)
+                state: data.status.state || "unknown",
+              };
+
+              setRepDataList(prev => {
+                // 현재 활성 rep이 존재하는지 확인
+                const activeRepExists = prev.some(rep => rep.repNumber === currentlyActiveRep);
+
+                if (!activeRepExists) {
+                  // 활성 rep이 아직 없다면 생성 (방어 코드)
+                  console.warn(`⚠️ Rep ${currentlyActiveRep}가 존재하지 않아 생성합니다.`);
+                  return [
+                    ...prev,
+                    {
+                      repNumber: currentlyActiveRep,
+                      frames: [newFrame],
+                      score: undefined,
+                      finalFeedback: [],
+                    }
+                  ];
+                }
+
+                // 현재 활성 rep에 프레임 추가
+                return prev.map(rep =>
+                  rep.repNumber === currentlyActiveRep
+                    ? { ...rep, frames: [...rep.frames, newFrame] }
+                    : rep
+                );
+              });
+
+              console.log(`➕ 회차 ${currentlyActiveRep}에 프레임 추가 (완료된 횟수: ${actualRepCount}, state: ${data.status.state || "unknown"})`);
+            }
+
+            // 현재 회차의 점수를 실시간으로 업데이트
+            if (currentlyActiveRep > 0 && data.status.rep_scores) {
+              const currentRepScore = data.status.rep_scores[currentlyActiveRep.toString()];
+              if (currentRepScore !== undefined) {
+                setRepDataList(prev =>
+                  prev.map(rep =>
+                    rep.repNumber === currentlyActiveRep
+                      ? { ...rep, score: currentRepScore }
+                      : rep
+                  )
+                );
+              }
+            }
+
+            // Play TTS for new feedback
+            if (data.status.feedback_ko && data.status.feedback_ko !== lastFeedbackRef.current) {
+              const feedbackMessages = data.status.feedback_ko
+                .split(" | ")
+                .map((msg: string) => msg.trim())
+                .filter((msg: string) => msg.length > 0);
+
+              // Play TTS for each feedback message
+              feedbackMessages.forEach((feedback: string) => {
+                playTTSFeedback(feedback);
+              });
+
+              lastFeedbackRef.current = data.status.feedback_ko;
+            }
+
+            setAiStatus({
+              ...data.status,
+              rep_count: actualRepCount,
+            });
+
+            console.log(
+              `✅ 실제 운동 횟수: ${actualRepCount} (백엔드 rep_count: ${data.status.rep_count}, 현재 진행 중인 회차: ${currentlyActiveRep})`
+            );
+
+            // 목표 횟수 도달 시 자동 중지
+            if (
+              typeof targetCount === "number" &&
+              actualRepCount >= targetCount
+            ) {
+              console.log(`🎉 목표 달성! (${actualRepCount}/${targetCount})`);
+
+              // 마지막 회차의 점수와 피드백 저장
+              if (actualRepCount > 0) {
+                // 점수 저장
+                if (data.status.rep_scores) {
+                  const lastRepScore = data.status.rep_scores[actualRepCount.toString()];
+                  if (lastRepScore !== undefined) {
+                    setRepDataList(prev =>
+                      prev.map(rep =>
+                        rep.repNumber === actualRepCount
+                          ? { ...rep, score: lastRepScore }
+                          : rep
+                      )
+                    );
+                  }
+                }
+
+                // 피드백 저장 (목표 도달 시의 피드백은 마지막 완료된 회차에 대한 것)
+                if (data.status.feedback_ko) {
+                  const feedbackMessages = data.status.feedback_ko
+                    .split(" | ")
+                    .map((msg: string) => msg.trim())
+                    .filter((msg: string) => msg.length > 0);
+
+                  if (feedbackMessages.length > 0) {
+                    setRepDataList(prev =>
+                      prev.map(rep =>
+                        rep.repNumber === actualRepCount
+                          ? { ...rep, finalFeedback: feedbackMessages }
+                          : rep
+                      )
+                    );
+                    console.log(`💬 마지막 회차(${actualRepCount})에 피드백 저장:`, feedbackMessages);
+                  }
+                }
+              }
+
+              setTimeout(() => {
+                handleStop(true);
+                setShowResultModal(true); // 결과 모달 표시
+              }, 500); // 마지막 프레임이 화면에 표시되도록 약간 지연
+            }
+          }
+
+          // 처리 완료 플래그 해제
+          isProcessingRef.current = false;
+        } else if (data.type === "stopped") {
+          console.log("운동 중지:", data.result);
+
+          handleStop(true);
+          setShowResultModal(true); // 결과 모달 표시
+        } else if (data.type === "error") {
+          console.error("오류:", data.message);
+          alert("오류 발생: " + data.message);
+          handleStop(true);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket 오류:", error);
+        alert("WebSocket 연결 오류가 발생했습니다.");
+        handleStop(true);
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket 연결 종료");
+      };
+    } catch (error) {
+      console.error("카메라 접근 오류:", error);
+      alert("카메라에 접근할 수 없습니다: " + (error as Error).message);
+    }
+  };
+
+  // 카메라 선택 완료 핸들러
+  const handleCameraSelect = async () => {
+    setIsCameraSelectModalOpen(false);
+    // 이제 실제로 운동 시작
+    await startExerciseWithCamera();
+  };
+
+  // 카메라를 사용하여 운동 시작 (실제 로직)
+  const startExerciseWithCamera = async () => {
+    try {
+      const isPlank = exercise === "플랭크";
+      const exerciseNameEn = EXERCISE_NAME_MAP[exercise];
+
+      const constraints: MediaStreamConstraints = {
+        video: selectedCameraId
+          ? {
+            deviceId: { exact: selectedCameraId },
+            width: { ideal: 480 },
+            height: { ideal: 360 },
+            frameRate: { ideal: 20, max: 30 },
+          }
+          : {
+            width: { ideal: 480 },
+            height: { ideal: 360 },
+            frameRate: { ideal: 20, max: 30 },
+          },
+        audio: false,
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      localStreamRef.current = stream;
+
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      await video.play();
+
+      videoElementRef.current = video;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 480;
+      canvas.height = 360;
+      canvasElementRef.current = canvas;
+
+      // WebSocket 연결
+      const ws = new WebSocket(WS_URL);
+      websocketRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket 연결됨");
+
+        const initMessage = {
+          exercise: exerciseNameEn,
+          is_video_mode: false,
+          target_reps:
+            isPlank
+              ? null
+              : typeof targetCount === "number"
+                ? targetCount
+                : null,
+          target_time:
+            !isPlank
+              ? null
+              : typeof targetTime === "number"
+                ? targetTime
+                : null,
+        };
+        console.log("WebSocket 초기화:", initMessage);
+
+        ws.send(JSON.stringify(initMessage));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "init_success") {
+          console.log("초기화 성공:", data.message);
+          setIsRunning(true);
+
+          // Start exercise record via API
+          if (exerciseData?.id) {
+            exerciseStartTimeRef.current = new Date();
+            const targetReps = typeof targetCount === "number" ? targetCount : 10;
+            const estimatedDuration = targetReps * 2; // Estimate 2 minutes per rep
+
+            startExercise({
+              exercise_id: exerciseData.id,
+              duration: estimatedDuration,
+              repetitions: targetReps,
+              sets_completed: 1,
+            })
+              .then((recordResponse) => {
+                setExerciseRecordId(recordResponse.id);
+                console.log("✅ Exercise record started:", recordResponse.id);
+              })
+              .catch((err) => {
+                console.error("❌ Failed to start exercise record:", err);
+              });
+          }
+
+          const fps = 20;
           sendFrameIntervalRef.current = window.setInterval(
             sendFrame,
             1000 / fps
@@ -1162,6 +1564,57 @@ const AnalysisDemo = () => {
           </div>
         </div>
       </div>
+
+      {/* 카메라 선택 모달 */}
+      {isCameraSelectModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => setIsCameraSelectModalOpen(false)}>
+          <div className={styles.cameraSelectModalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>카메라 선택</h2>
+              <button
+                className={styles.modalCloseButton}
+                onClick={() => setIsCameraSelectModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className={styles.cameraList}>
+              {availableCameras.length === 0 ? (
+                <p className={styles.noCamerasText}>사용 가능한 카메라가 없습니다.</p>
+              ) : (
+                availableCameras.map((camera, idx) => (
+                  <div
+                    key={camera.deviceId}
+                    className={`${styles.cameraOption} ${selectedCameraId === camera.deviceId ? styles.cameraOptionSelected : ''
+                      }`}
+                    onClick={() => setSelectedCameraId(camera.deviceId)}
+                  >
+                    <div className={styles.cameraIcon}>📹</div>
+                    <div className={styles.cameraInfo}>
+                      <div className={styles.cameraName}>
+                        {camera.label || `카메라 ${idx + 1}`}
+                      </div>
+                      <div className={styles.cameraId}>{camera.deviceId.substring(0, 20)}...</div>
+                    </div>
+                    {selectedCameraId === camera.deviceId && (
+                      <div className={styles.checkmark}>✓</div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className={styles.cameraSelectActions}>
+              <button
+                className={styles.modalConfirmButton}
+                onClick={handleCameraSelect}
+                disabled={!selectedCameraId}
+              >
+                선택 완료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 결과 모달 */}
       {showResultModal && (

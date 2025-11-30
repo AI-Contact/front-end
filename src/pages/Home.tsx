@@ -1,7 +1,7 @@
 import styles from './Home.module.css';
 import { IoSparkles } from 'react-icons/io5';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useRef, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getExercises, getMyRecords } from '../api/exerciseService';
 
 interface ExerciseScore {
@@ -22,7 +22,6 @@ interface CalendarDay {
 const Home = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const progressRef = useRef<HTMLDivElement>(null);
     const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
 
     // 더미 데이터
@@ -39,11 +38,6 @@ const Home = () => {
         navigate('/workout');
     };
 
-    // 진행상황 섹션으로 스크롤
-    const handleViewProgress = () => {
-        progressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
     // 운동 데이터 가져오기
     useEffect(() => {
         const fetchProgressData = async () => {
@@ -56,7 +50,6 @@ const Home = () => {
                     console.log('Exercise ID:', completedExercise.exerciseId);
                     console.log('Duration (초):', completedExercise.durationInSeconds);
                 }
-
 
                 // 운동 목록 가져오기
                 const exercises = await getExercises({ limit: 5 });
@@ -171,6 +164,7 @@ const Home = () => {
     };
 
     return (
+
         <div className={styles.home}>
             {/* Top Section: Welcome Banner + Weekly Ranking + Calendar */}
             <div className={styles.topSection}>

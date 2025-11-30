@@ -62,6 +62,9 @@ const Game = () => {
     const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
     const [loadingRankings, setLoadingRankings] = useState<boolean>(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCameraSelectModalOpen, setIsCameraSelectModalOpen] = useState(false);
+    const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+    const [selectedCameraId, setSelectedCameraId] = useState<string>('');
 
     const [showHit, setShowHit] = useState(false);
     const [hitType, setHitType] = useState('');
@@ -79,9 +82,28 @@ const Game = () => {
     const wsRef = useRef<WebSocket | null>(null);
     const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const startCamera = async () => {
+    const enumerateCameras = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            setAvailableCameras(videoDevices);
+            if (videoDevices.length > 0 && !selectedCameraId) {
+                setSelectedCameraId(videoDevices[0].deviceId);
+            }
+        } catch (err) {
+            console.error("Error enumerating cameras:", err);
+            alert("카메라 목록을 불러올 수 없습니다.");
+        }
+    };
+
+    const startCamera = async (deviceId?: string) => {
+        try {
+            const constraints: MediaStreamConstraints = {
+                video: deviceId
+                    ? { deviceId: { exact: deviceId }, width: 640, height: 480 }
+                    : { width: 640, height: 480 }
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 await videoRef.current.play();
@@ -105,7 +127,37 @@ const Game = () => {
 
         const ctx = canvasRef.current.getContext('2d');
         if (ctx) {
-            ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            // Get video dimensions
+            const videoWidth = videoRef.current.videoWidth || canvasRef.current.width;
+            const videoHeight = videoRef.current.videoHeight || canvasRef.current.height;
+
+            // Rotate the canvas dimensions (swap width and height)
+            const rotatedWidth = videoHeight;
+            const rotatedHeight = videoWidth;
+
+            // Adjust canvas size if needed
+            if (canvasRef.current.width !== rotatedWidth || canvasRef.current.height !== rotatedHeight) {
+                canvasRef.current.width = rotatedWidth;
+                canvasRef.current.height = rotatedHeight;
+            }
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+            // Save the current context state
+            ctx.save();
+
+            // Rotate 90 degrees counter-clockwise (left)
+            // Move rotation center to canvas center
+            ctx.translate(canvasRef.current.width / 2, canvasRef.current.height / 2);
+            ctx.rotate(-Math.PI / 2); // -90 degrees
+
+            // Draw the image with adjusted position
+            ctx.drawImage(videoRef.current, -videoWidth / 2, -videoHeight / 2, videoWidth, videoHeight);
+
+            // Restore the context state
+            ctx.restore();
+
             const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
 
             try {
@@ -176,9 +228,16 @@ const Game = () => {
         setServerGrade('');
         setIsGameRunning(false);
         setIsWarmingUp(false);
+        // Open camera selection modal first
+        await enumerateCameras();
+        setIsCameraSelectModalOpen(true);
+    };
+
+    const handleCameraSelect = async () => {
+        setIsCameraSelectModalOpen(false);
         setIsModalOpen(true);
-        // Start camera when modal opens
-        await startCamera();
+        // Start camera with selected device
+        await startCamera(selectedCameraId);
     };
 
     const handleStartGame = async () => {
@@ -209,9 +268,9 @@ const Game = () => {
 
                 if (data.type === 'init_success') {
                     console.log("Game Initialized:", data.message);
-                    // 프레임 전송 시작 (전송 속도 대폭 감소: 10 FPS → 4 FPS)
+                    // 프레임 전송 시작 (전송 속도 대폭 감소: 10 FPS → 3 FPS)
                     if (!frameIntervalRef.current) {
-                        frameIntervalRef.current = setInterval(sendFrame, 333); // 250ms = 4 FPS
+                        frameIntervalRef.current = setInterval(sendFrame, 333); // 333ms = 3 FPS
                     }
                 } else if (data.type === 'warmup_end') {
                     console.log("Warmup Ended");
@@ -222,7 +281,7 @@ const Game = () => {
                     }
                 } else if (data.type === 'frame') {
                     const result = data.status;
-                    // console.log(result);
+                    console.log(result);
                     // 운동 구간에서 3초마다 새 등급이 매겨질 때만 화면에 표시
                     if (result && result.grade_changed && result.current_grade) {
                         const grade = result.current_grade as 'PERFECT' | 'GOOD' | 'BAD';
@@ -317,6 +376,7 @@ const Game = () => {
 
     const handleGameComplete = async (fromAutoComplete: boolean = false, providedGradeCounts?: any, providedGrade?: string, providedScore?: number) => {
         if (!selectedVideo) return;
+        if (isGameRunning) handleStopGame();
 
         // 자동 완료가 아닌 경우(수동 종료)에만 WebSocket에 stop 메시지 전송
         if (!fromAutoComplete) {
@@ -351,8 +411,8 @@ const Game = () => {
         }
 
         // 백엔드에서 계산한 점수 사용, 없으면 자체 계산 (백엔드와 동일한 공식)
-        const totalScore = providedScore !== undefined 
-            ? providedScore 
+        const totalScore = providedScore !== undefined
+            ? Math.round(providedScore)
             : ((counts.PERFECT * 100.0 + counts.GOOD * 70.0 + counts.BAD * 30.0) / totalHits);
         const accuracy = totalHits > 0 ? ((totalHits - counts.BAD) / totalHits) * 100 : 0;
 
@@ -427,6 +487,57 @@ const Game = () => {
                     </Carousel>
                 )}
             </div>
+
+            {/* Camera Selection Modal */}
+            {isCameraSelectModalOpen && (
+                <div className={styles.modal} onClick={() => setIsCameraSelectModalOpen(false)}>
+                    <div className={styles.cameraSelectModalContent} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>카메라 선택</h2>
+                            <button
+                                className={styles.closeButton}
+                                onClick={() => setIsCameraSelectModalOpen(false)}
+                            >
+                                닫기
+                            </button>
+                        </div>
+                        <div className={styles.cameraList}>
+                            {availableCameras.length === 0 ? (
+                                <p className={styles.noCamerasText}>사용 가능한 카메라가 없습니다.</p>
+                            ) : (
+                                availableCameras.map((camera, idx) => (
+                                    <div
+                                        key={camera.deviceId}
+                                        className={`${styles.cameraOption} ${selectedCameraId === camera.deviceId ? styles.cameraOptionSelected : ''
+                                            }`}
+                                        onClick={() => setSelectedCameraId(camera.deviceId)}
+                                    >
+                                        <div className={styles.cameraIcon}>📹</div>
+                                        <div className={styles.cameraInfo}>
+                                            <div className={styles.cameraName}>
+                                                {camera.label || `카메라 ${idx + 1}`}
+                                            </div>
+                                            <div className={styles.cameraId}>{camera.deviceId.substring(0, 20)}...</div>
+                                        </div>
+                                        {selectedCameraId === camera.deviceId && (
+                                            <div className={styles.checkmark}>✓</div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className={styles.cameraSelectActions}>
+                            <button
+                                className={styles.primaryAction}
+                                onClick={handleCameraSelect}
+                                disabled={!selectedCameraId}
+                            >
+                                선택 완료
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Video Modal */}
             {isModalOpen && (
@@ -524,7 +635,7 @@ const Game = () => {
                                         <iframe
                                             ref={(ref) => setIframeRef(ref)}
                                             width="100%"
-                                            height="520"
+                                            height="720"
                                             src={`https://www.youtube.com/embed/${selectedVideo?.youtubeId || ''}?enablejsapi=1`}
                                             title="YouTube video player"
                                             frameBorder="0"

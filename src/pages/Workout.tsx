@@ -5,6 +5,34 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getExercises, getMyStats } from '../api/exerciseService';
 
+// 운동별 썸네일 매핑
+const EXERCISE_THUMBNAILS: Record<string, string> = {
+    '푸쉬업': '/thumbnails/pushup.png',
+    '플랭크': '/thumbnails/plank.png',
+    '크런치': '/thumbnails/crunch.png',
+    '크로스 런지': '/thumbnails/crosslunge.png',
+    '레그레이즈': '/thumbnails/legraise.png',
+};
+
+const EXERCISE_VIDEOS: Record<string, string> = {
+    '푸쉬업': 'WDIpL0pjun0',
+    '플랭크': 'pvIjsG5Svck',
+    '크런치': 'Xyd_fa5zoEU',
+    '크로스 런지': 'wm_QY2Ym9kY',
+    '레그레이즈': 'qvi8aM02_GY',
+};
+
+const EXERCISE_DESCIPTIONS: Record<string, string> = {
+    '푸쉬업': '푸쉬업은 상체 근력 강화에 효과적인 운동으로, 가슴, 어깨, 삼두근을 주로 사용합니다.',
+    '플랭크': '플랭크는 코어 근육을 강화하는 운동으로, 복부와 허리 근력을 향상시킵니다.',
+    '크런치': '크런치는 복부 근육을 집중적으로 단련하는 운동으로, 복근 형성에 도움을 줍니다.',
+    '크로스 런지': '크로스 런지는 하체 근력과 균형 감각을 향상시키는 운동으로, 엉덩이와 허벅지 근육을 강화합니다.',
+    '레그레이즈': '레그레이즈는 하복부 근육을 강화하는 운동으로, 복부 지방 감소와 근육 톤 향상에 효과적입니다.',
+};
+
+// 기본 썸네일 (운동 이름 매칭 실패 시)
+const DEFAULT_THUMBNAIL = 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&q=80';
+
 const Workout = () => {
     // 상태 관리
     const navigate = useNavigate();
@@ -57,16 +85,24 @@ const Workout = () => {
                     // 평균 점수 계산 (form_score 기준, 0-100 범위로 변환)
                     const averageScore = stats?.average_form_score || 0;
 
+                    // 운동 이름에 맞는 썸네일 선택
+                    const thumbnail = exercise.thumbnail_url ||
+                        EXERCISE_THUMBNAILS[exercise.name] ||
+                        DEFAULT_THUMBNAIL;
+
+                    const videoId = EXERCISE_VIDEOS[exercise.name] || 'hAGfBjvIRFI'; // 기본 비디오 ID
+                    const description = EXERCISE_DESCIPTIONS[exercise.name] || exercise.description || '운동 설명이 없습니다.';
+
                     return {
                         id: exercise.id,
                         title: exercise.name,
                         difficulty: exercise.difficulty === 'beginner' ? '초급' :
                             exercise.difficulty === 'intermediate' ? '중급' : '고급',
-                        description: exercise.description,
+                        description: description,
                         benefits: exercise.muscle_groups || [], // 배열이 없으면 빈 배열
-                        thumbnail: exercise.thumbnail_url || 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800',
-                        videoId: 'hAGfBjvIRFI', // 임시 비디오 ID
-                        totalTimeSeconds: stats?.total_duration || 0, // 총 운동 시간 (분)
+                        thumbnail: thumbnail,
+                        videoId: videoId,
+                        totalTimeSeconds: stats?.total_duration || 0, // 총 운동 시간 (초)
                         averageScore: averageScore, // API에서 가져온 평균 점수 (0-100)
                         totalSessions: stats?.total_sessions || 0, // 총 세션 수
                     };
@@ -171,7 +207,7 @@ const Workout = () => {
                                 <div className={styles.playCircle}>
                                     <FiPlay className={styles.playIcon} />
                                 </div>
-                                <span className={styles.playText}>영상 보기</span>
+                                <span className={styles.playText}>데모 영상 보기</span>
                             </div>
                         </>
                     ) : (
