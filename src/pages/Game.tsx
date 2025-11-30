@@ -148,7 +148,7 @@ const Game = () => {
                     id: v.id,
                     youtubeId: v.youtube_id,
                     title: v.title,
-                    thumbnailUrl: v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/maxresdefault.jpg`,
+                    thumbnailUrl: v.thumbnail_url || `https://img.youtube.com/vi/${v.youtube_id}/hqdefault.jpg`,
                 }));
                 setVideoList(items);
             })
@@ -238,8 +238,6 @@ const Game = () => {
                         setShowHit(true);
                         setTimeout(() => setShowHit(false), 500);
                     }
-                } else if (data.type === 'warmup_end') {
-
                 }
                 else if (data.type === 'error') {
                     console.error("Game Error:", data.message);
@@ -306,7 +304,7 @@ const Game = () => {
                     type: "stop",
                 })
             );
-            
+
             // stop 메시지 전송 후 WebSocket은 stopped 메시지를 받은 후에 닫힘
         }
         // Camera continues running

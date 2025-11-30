@@ -32,7 +32,8 @@ const FEEDBACK_TO_AUDIO: Record<string, string> = {
   "손을 가슴 중앙에 위치시키세요": "/tts/14.mp3",
   "고개를 중립 상태로 유지하세요": "/tts/15.mp3",
   "가슴을 더 내려가세요": "/tts/16.mp3",
-  "잘하고 있어요!": "/tts/17.mp3",
+  "조금 더 내려가주세요": "/tts/17.mp3",
+  "조금 더 올라와주세요": "/tts/18.mp3",
 };
 
 interface AIAnalysisStatus {

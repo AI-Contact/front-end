@@ -12,6 +12,7 @@
     border: 1px solid #ffffff;
     border-radius: 16px;
     min-height: 100px;
+    aspect-ratio: 16 / 9;
     width: 100%;
     background: white;
     box-shadow: 0 4px 12px rgba(87, 36, 255, 0.15);
