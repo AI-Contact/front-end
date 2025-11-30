@@ -22,6 +22,7 @@ interface GameResults {
     badHits: number;
     accuracy: number;
     grade: string;
+    maxCombo: number;
 }
 
 const Game = () => {
@@ -70,6 +71,9 @@ const Game = () => {
     const [hitType, setHitType] = useState('');
     const [showResults, setShowResults] = useState(false);
     const [hitCounts, setHitCounts] = useState({ PERFECT: 0, GOOD: 0, BAD: 0 });
+    const [combo, setCombo] = useState(0);
+    const [maxCombo, setMaxCombo] = useState(0);
+    const [comboPulse, setComboPulse] = useState(false);
     const [gameResults, setGameResults] = useState<GameResults | null>(null);
     const [isGameRunning, setIsGameRunning] = useState(false);
     const [isWarmingUp, setIsWarmingUp] = useState(false);
@@ -81,6 +85,7 @@ const Game = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const maxComboRef = useRef<number>(0);
 
     const enumerateCameras = async () => {
         try {
@@ -225,6 +230,9 @@ const Game = () => {
         setSelectedVideo({ id: video.id, youtubeId: video.youtubeId });
         setShowResults(false);
         setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setCombo(0);
+        setMaxCombo(0);
+        maxComboRef.current = 0;
         setServerGrade('');
         setIsGameRunning(false);
         setIsWarmingUp(false);
@@ -243,6 +251,7 @@ const Game = () => {
     const handleStartGame = async () => {
         console.log("START!");
         setHitCounts({ PERFECT: 0, GOOD: 0, BAD: 0 });
+        setCombo(0);
         setServerGrade('');
         setIsGameRunning(true);
         setIsWarmingUp(true);
@@ -292,6 +301,25 @@ const Game = () => {
                             ...prev,
                             [grade]: prev[grade] + 1
                         }));
+
+                        // Update combo: increment on PERFECT/GOOD, reset on BAD
+                        // if (grade === 'BAD') {
+                        //     setCombo(0);
+                        // } else {
+                        setCombo(prev => {
+                            const newCombo = prev + 1;
+                            setMaxCombo(max => {
+                                const newMax = Math.max(max, newCombo);
+                                maxComboRef.current = newMax;
+                                // console.log(`Combo: ${newCombo}, Max Combo: ${newMax}`);
+                                return newMax;
+                            });
+                            return newCombo;
+                        });
+                        // Trigger pulse animation
+                        setComboPulse(true);
+                        setTimeout(() => setComboPulse(false), 300);
+                        // }
 
                         setHitType(grade);
                         setShowHit(true);
@@ -416,14 +444,19 @@ const Game = () => {
             : ((counts.PERFECT * 100.0 + counts.GOOD * 70.0 + counts.BAD * 30.0) / totalHits);
         const accuracy = totalHits > 0 ? ((totalHits - counts.BAD) / totalHits) * 100 : 0;
 
+        // console.log('Max Combo at game completion:', maxComboRef.current);
+
         const results: GameResults = {
             totalScore,
             perfectHits: counts.PERFECT,
             goodHits: counts.GOOD,
             badHits: counts.BAD,
             accuracy: Math.round(accuracy * 10) / 10,
-            grade: grade
+            grade: grade,
+            maxCombo: maxComboRef.current
         };
+
+        console.log('Game Results:', results);
 
         setGameResults(results);
         setShowResults(true);
@@ -622,6 +655,16 @@ const Game = () => {
                                                 }`}>
                                                 {hitType}
                                             </p>
+                                            {isGameRunning && !isWarmingUp && (
+                                                <div className={`${styles.comboDisplay} ${comboPulse ? styles.comboPulse : ''}`}>
+                                                    {combo > 0 && (
+                                                        <>
+                                                            <div className={styles.comboNumber}>{combo}</div>
+                                                            <div className={styles.comboText}>COMBO</div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Countdown Overlay */}
@@ -668,9 +711,13 @@ const Game = () => {
                                         <div className={styles.gradeLabel} style={{ fontSize: '24px', fontWeight: 'bold', color: '#4f46e5', marginTop: '10px' }}>
                                             Grade: {gameResults?.grade}
                                         </div>
+                                        <div className={styles.maxComboLabel} style={{ fontSize: '18px', fontWeight: 'bold', color: '#a855f7', marginTop: '8px' }}>
+                                            Max Combo: {gameResults?.maxCombo}
+                                        </div>
                                         <div className={styles.accuracyLabel}>
                                             평균 정확도: {gameResults?.accuracy}%
                                         </div>
+
                                     </div>
 
                                     <div className={styles.hitDetailList}>
