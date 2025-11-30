@@ -641,11 +641,46 @@ const AnalysisDemo = () => {
       return;
     }
 
-    // 캔버스에 비디오 프레임 그리기
+    // 캔버스에 비디오 프레임 그리기 (왼쪽으로 90도 회전)
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // 웹캠 모드일 때만 회전 적용
+    if (isWebcamMode) {
+      // 원본 비디오 크기
+      const videoWidth = video.videoWidth || canvas.width;
+      const videoHeight = video.videoHeight || canvas.height;
+
+      // 회전 후 크기로 캔버스 조정 (가로/세로 교환)
+      const rotatedWidth = videoHeight;
+      const rotatedHeight = videoWidth;
+
+      // 캔버스 크기 조정 (필요한 경우)
+      if (canvas.width !== rotatedWidth || canvas.height !== rotatedHeight) {
+        canvas.width = rotatedWidth;
+        canvas.height = rotatedHeight;
+      }
+
+      // 캔버스 초기화
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 회전을 위한 변환 저장
+      ctx.save();
+
+      // 왼쪽으로 90도 회전 (시계 반대 방향)
+      // 회전 중심을 캔버스 중심으로 이동
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(-Math.PI / 2); // -90도 회전
+
+      // 이미지 그리기 (회전 후 위치 조정)
+      ctx.drawImage(video, -videoWidth / 2, -videoHeight / 2, videoWidth, videoHeight);
+
+      // 변환 복원
+      ctx.restore();
+    } else {
+      // 업로드 모드: 회전 없이 그대로 그리기
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
 
     // Base64로 인코딩 (품질 낮춤)
     const frameData = canvas.toDataURL("image/jpeg", 0.6);
